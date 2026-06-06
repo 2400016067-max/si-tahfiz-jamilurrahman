@@ -1,0 +1,579 @@
+=== Laporan_Fase1.pdf ===
+Pages: 14
+--- Page 1 ---
+ 
+LAPORAN FASE 1: ANALISIS KEBUTUHAN  
+ 
+ 
+ 
+Anggota Kelompok:  
+1. Imam Faqih Masduqi (2400016067)  
+2. Ahmad Raka Putra Pratama (2400016089)  
+3. Dadan Julianto (2400016070)  
+4. Franchisco Dabutar (2400016081)  
+5. Mohammed Rashed Mansoor (2406016105)  
+ 
+ 
+1. Profil Organisasi  
+1.1 Identitas Umum  
+● Nama Instansi:  MTs TQ Jamilurrahman.  
+● Afiliasi:  Cabang dari unit pendidikan formal di bawah yayasan yang sama 
+dengan Islamic Centre Binbas .  
+● Model Pendidikan:  Full-day school  berbasis pondok pesantren (santri belajar 
+dari pagi hingga sore tanpa bermalam).  
+● Fokus Utama:  Program Tahfiz Al -Qur'an intensif sebagai kurikulum unggulan.  
+1.2 Struktur Operasional Tahfiz  
+● Waktu Pelaksanaan:  Sesi tahfiz harian dilakukan setiap pagi pukul 07:00 – 
+09:00 WIB.  
+● Metode Pengelompokan:  Menggunakan sistem Halaqah , yaitu kelompok 
+kecil yang terdiri dari 10 –12 santri per satu orang Guru Pengampu (Murobbi).  
+● Hierarki Manajemen:  Terdiri dari Kepala Sekolah sebagai otoritas tertinggi, 
+Komite Sekolah, Koordinator Tahfiz sebagai supervisor lapangan, dan Staf Tata 
+Usaha (TU).  
+1.3 Program Utama Hafalan  Sekolah menjalankan tiga program inti untuk menjaga 
+kualitas hafalan santri :  
+1. Sabak:  Setoran hafalan baru setiap hari di sekolah.  
+2. Sabki/Saki:  Pengulangan hafalan baru (hari -hari sebelumnya) untuk 
+memperkuat daya ingat.  
+3. Manzil:  Pengulangan hafalan lama (juz yang sudah tuntas) yang dilakukan di 
+rumah dengan pengawasan orang tua.  
+ 
+--- Page 2 ---
+ 
+2.  Problem Statement (Pernyataan Masalah)  
+Kondisi Ideal:  Program Tahfiz Al -Qur'an di Sekolah jamilurrohman idealnya 
+memiliki sistem manajemen data yang terintegrasi, transparan, dan real-time untuk 
+memantau tiga pilar utama hafalan santri: Sabak  (hafalan baru), Sabki  (hafalan 
+kemarin), dan Manzil  (murojaah rumah). Sistem tersebut seharusnya memudahkan 
+pengampu dalam melakukan rekapitulasi nilai harian, memfasilitasi komunikasi dua 
+arah yang efektif dengan orang tua, serta menjamin kontinuitas data meskipun terjadi 
+rotasi personel.  
+Kondisi Riil (Masalah Utama):  Namun pada kenyataannya, sistem 
+pengelolaan data hafalan saat ini masih berada dalam kondisi yang dianggap "stuck" 
+atau tertinggal . Terdapat beberapa kendala utama di lapangan, antara lain:  
+● Fragmentasi Data:  Data perkembangan santri tersebar di berbagai media yang tidak 
+saling terhubung, mulai dari buku kontrol fisik (kertas), grup WhatsApp hafalan, hingga 
+rekapitulasi manual di OneDrive yang bersifat statis.  
+● Inefisiensi Administrasi:  Proses rekapitulasi data dari buku fisik ke komputer 
+dilakukan secara akumulatif setiap satu bulan sekali, yang memaksa pengampu untuk 
+bekerja lembur selama beberapa malam demi mengolah data penilaian bulanan atau 
+semesteran .  
+● Rendahnya Integritas Data Rumah:  Terdapat celah validitas pada laporan kegiatan 
+Manzil  di rumah, di mana santri memiliki peluang untuk berbohong mengenai laporan 
+murojaah karena pengawasan orang tua melalui tanda tangan fisik sulit dipastikan 
+kebenarannya secara real-time . 
+● Masalah Komunikasi & Kontinuitas:  Sering terjadi miskomunikasi dengan orang tua 
+yang menuntut hasil tanpa memahami proses progres anak . Selain itu, rotasi staf atau 
+pengampu yang sering berpindah unit mengakibatkan pemeliharaan sistem manual 
+sering terputus dan tidak berkelanjutan .  
+● Batasan Kebijakan:  Kebijakan sekolah yang melarang santri memiliki HP pribadi 
+selama 3 tahun masa pendidikan menuntut adanya solusi digital yang hanya dikelola 
+oleh aktor dewasa (pengampu dan orang tua) tanpa melibatkan akses langsung dari 
+santri.  
+Dampak Masalah:  Fragmentasi dan inefisiensi ini mengakibatkan sulitnya melakukan 
+evaluasi santri secara akurat, terhambatnya pengambilan keputusan terkait kenaikan 
+atau penurunan grade  (Tahsin, Takmil, Tahfiz), serta hilangnya data historis 
+perkembangan santri yang sangat diperlukan oleh pihak sekolah dan komite untuk 
+memantau kualitas program tahfiz secara keseluruhan.  
+ 
+ 
+ 
+--- Page 3 ---
+ 
+3.  Identifikasi Stakeholder  
+Sesuai dengan hasil observasi, berikut adalah pemetaan stakeholder beserta peran dan masalah 
+nyata yang mereka alami:  
+Stakeholder  Peran (Role)  Masalah yang Dialami  
+Pengampu / 
+Murobbi 
+(Guru Tahfiz)  Mengelola kelompok kecil (halaqah) , 
+menyimak setoran hafalan harian 
+(Sabak & Saki) , serta melakukan 
+rekapitulasi nilai bulanan.  Proses rekapitulasi data manual memakan 
+waktu sangat lama hingga harus lembur 
+berhari -hari . Data juga terfragmentasi di 
+berbagai media seperti buku fisik, WA, 
+dan OneDrive .  
+Orang Tua / 
+Wali Santri  Bertanggung jawab mengawasi 
+murojaah rumah (Manzil) , 
+memberikan validasi tanda tangan , 
+serta memantau perkembangan harian 
+anak.  Sulit memantau perkembangan anak 
+secara real -time dan sering terjadi 
+miskomunikasi dengan sekolah terkait 
+progres hafalan (merasa sudah bayar SPP 
+sehingga hafalan harus otomatis lancar) .  
+Koordinator 
+Tahfiz  Menentukan klasifikasi grade santri 
+(Tahsin, Takmil, Tahfiz) , menangani 
+santri yang stagnan (stuck) , serta 
+mengevaluasi kenaikan/penurunan 
+grade santri.  Kesulitan melakukan evaluasi yang akurat 
+karena data tidak terintegrasi dan belum 
+adanya visualisasi tren perkembangan 
+(grafik) santri secara keseluruhan .  
+Santri (Murid)  Subjek utama yang melakukan 
+setoran hafalan harian dan wajib 
+memenuhi target baris setoran sesuai 
+dengan grade masing -masing .  Adanya peluang untuk melakukan 
+kebohongan pada laporan murojaah rumah 
+(Manzil) serta dibatasi oleh kebijakan 
+larangan membawa HP pribadi selama di 
+sekolah.  
+Kepala 
+Sekolah & 
+Komite 
+Sekolah  Pemegang otoritas atas modul ajar , 
+pemberi usulan strategis 
+pengembangan sekolah , serta 
+peninjau laporan capaian akhir .  Belum memiliki sistem informasi yang 
+memadai untuk memberikan laporan 
+komprehensif sebagai bahan pertimbangan 
+dalam rapat evaluasi komite .  
+Staf Tata 
+Usaha (TU)  Membantu pengelolaan data 
+administratif sekolah dan mendukung 
+koordinasi data antar unit (putra dan 
+putri).  Tingginya tingkat rotasi personel (staf 
+yang mudah berpindah tugas) sering kali 
+memutus kontinuitas dan pemeliharaan 
+sistem data yang masih bersifat manual .  
+ 
+ 
+ 
+ 
+4. Traceability Table (Tabel Keterlacakan)  
+--- Page 4 ---
+ 
+Tabel ini menghubungkan temuan lapangan dengan kebutuhan fungsional sistem secara logis:  
+Temuan Observasi (Bukti)  Masalah  Stakeholder  
+Data hafalan tersebar di buku 
+fisik, WA Group, dan link 
+OneDrive statis.  Fragmentasi Data: Data 
+tidak terintegrasi dan 
+sulit diakses secara 
+serentak.  Pengampu & Orang Tua  
+Pengampu harus melakukan 
+rekap manual ke Excel/PC 
+setiap akhir bulan.  Input Berulang: 
+Inefisiensi waktu 
+karena pencatatan 
+dilakukan lebih dari 
+satu kali.  Pengampu  
+Santri berpotensi tidak jujur 
+mengenai murojaah di rumah 
+(Manzil).  Integritas Data: 
+Lemahnya validasi 
+aktivitas mandiri santri 
+di luar sekolah.  Orang Tua  
+Tidak ada grafik/visualisasi; 
+hanya ada angka capaian total.  Informasi Tidak 
+Tersedia: Sulit 
+menganalisis tren 
+performa (naik/turun) 
+santri.  Koordinator & Ortu  
+Rotasi staf TU sering membuat 
+sistem administrasi yang lama 
+terhenti/hilang.  Risiko Kehilangan 
+Data: Kontinuitas 
+sistem bergantung pada 
+personil tertentu.  Staf TU  
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+5. Kebutuhan Fungsional (Functional Requirements)  
+--- Page 5 ---
+ 
+Berdasarkan tabel di atas, berikut adalah 5 kebutuhan fungsional utama:  
+Pengguna  Kebutuhan Pengguna  Kebutuhan Fungsional  
+F1. Pengampu / 
+Murobbi  F1.1 Melakukan pencatatan setoran 
+hafalan harian secara digital (Sabak & 
+Sabki) .  F1.1.1 Sistem harus memungkinkan 
+Pengampu memilih profil santri yang ada di 
+dalam kelompok hafalannya (10 -12 anak) .  
+  F1.1.2 Sistem menyediakan fitur input data 
+Sabki (murojaah hafalan kemarin) sebagai 
+prasyarat sebelum menambah hafalan baru .  
+  F1.1.3 Sistem menyediakan fitur input data 
+Sabak (hafalan baru) yang meliputi nama 
+surah, rentang ayat/halaman, dan jumlah baris 
+sesuai target grade .  
+  F1.1.4 Sistem secara otomatis memvalidasi 
+kelancaran setoran berdasarkan jumlah 
+kesalahan (maksimal 1 kesalahan per 
+halaman).  
+F1. Pengampu / 
+Murobbi  F1.2 Memantau aktivitas murojaah 
+mandiri santri di rumah (Manzil).  F1.2.1 Sistem menampilkan status 
+konfirmasi/tanda tangan digital dari Orang 
+Tua terkait aktivitas Manzil santri pada hari 
+sebelumnya .  
+  F1.2.2 Sistem memberikan peringatan jika 
+santri tidak memiliki laporan Manzil yang 
+tuntas sebagai bahan pertimbangan sebelum 
+ujian kenaikan juz .  
+F1. Pengampu / 
+Murobbi  F1.3 Melakukan evaluasi progres dan 
+komunikasi dua arah dengan orang tua.  F1.3.1 Sistem menyediakan fitur "Catatan 
+Pengampu" untuk memberikan feedback 
+harian mengenai kualitas bacaan atau kendala 
+santri.  
+  F1.3.2 Sistem menampilkan pesan atau 
+catatan dari Orang Tua yang dikirimkan 
+melalui platform sebagai pengganti buku 
+kontrol fisik.  
+F1. Pengampu / 
+Murobbi  F1.4 Mengotomatiskan proses administrasi 
+dan pelaporan berkala.  F1.4.1 Sistem secara otomatis mengakumulasi 
+data setoran harian menjadi draf laporan 
+mingguan dan bulanan.  
+  F1.4.2 Sistem menyediakan fitur ekspor data 
+--- Page 6 ---
+ 
+rekapitulasi ke format dokumen (PDF/Excel) 
+untuk keperluan rapat evaluasi atau arsip 
+sekolah.  
+F1. Pengampu / 
+Murobbi  F1.5 Memantau grafik perkembangan 
+performa santri (Analytics).  F1.5.1 Sistem menyediakan visualisasi grafik 
+historis tren hafalan (naik/turun) untuk setiap 
+santri dalam hafalannya .  
+  F1.5.2 Sistem memberikan notifikasi kepada 
+Pengampu jika terdapat santri yang 
+menunjukkan tanda stagnasi (tidak ada 
+progres selama periode tertentu) .  
+F1. Pengampu /Murobbi  F1.6 Mengelola target dan penilaian 
+khusus selama Pekan Muraja'ah.  F1.6.1  Sistem harus memungkinkan 
+Pengampu mengatur jumlah target setoran 
+berdasarkan rumus pembagian hari (contoh: 
+total hafalan dibagi 15 hari).  
+  F1.6.2 Sistem harus menyediakan fitur 
+penyesuaian threshold  (batas) kesalahan 
+secara fleksibel (contoh: dari maksimal 1 
+menjadi maksimal 2 kesalahan per halaman).  
+  F1.6.3 Sistem menyediakan modul pencatatan 
+"Tikrar" (pengulangan 10x di sekolah) bagi 
+santri yang belum tuntas setoran harian.  
+F2. Orang Tua / Wali 
+Santri  F2.1 Melakukan validasi digital aktivitas 
+murojaah mandiri di rumah (Manzil) .  F2.1.1 Sistem harus menyediakan fitur login 
+khusus akun Orang Tua yang terhubung 
+dengan data anak .  
+  F2.1.2 Sistem harus menampilkan target 
+halaman/juz murojaah harian berdasarkan 
+urutan hafalan santri (target 2,5 lembar/hari) .  
+  F2.1.3 Sistem menyediakan fitur konfirmasi 
+(centang digital/tanda tangan layar) sebagai 
+bukti orang tua telah menyimak murojaah 
+anak .  
+  F2.1.4 Sistem memungkinkan orang tua 
+menginput jumlah halaman aktual jika santri 
+tidak mencapai target yang ditentukan.  
+F2. Orang Tua / Wali 
+Santri  F2.2 Memantau perkembangan hafalan 
+harian dan kualitas bacaan anak di sekolah.  F2.2.1 Sistem harus menampilkan laporan 
+harian hasil setoran Sabak (baru) dan Sabki 
+(kemarin) yang diinput oleh Pengampu.  
+--- Page 7 ---
+ 
+  F2.2.2 Sistem menampilkan status kelancaran 
+setoran dan jumlah kesalahan yang tercatat 
+pada setiap sesi .  
+  F2.2.3 Sistem menampilkan pemberitahuan 
+(notifikasi) jika anak dinyatakan lulus atau 
+harus mengulang pada ujian kenaikan juz 
+(UKJ) .  
+F2. Orang Tua / Wali 
+Santri  F2.3 Melihat visualisasi tren 
+perkembangan performa anak secara 
+berkala (Analytics).  F2.3.1 Sistem menyediakan dashboard grafik 
+yang menunjukkan tren naik atau turunnya 
+jumlah baris yang dihafal anak setiap 
+bulannya .  
+  F2.3.2 Sistem menampilkan historis capaian 
+juz santri dari awal pendaftaran hingga posisi 
+saat ini.  
+F2. Orang Tua / Wali 
+Santri  F2.4 Melakukan komunikasi dua arah 
+dengan Pengampu/Murobbi sebagai 
+pengganti buku kontrol fisik.  F2.4.1 Sistem menyediakan fitur "Catatan 
+Orang Tua" untuk mengirim pesan atau 
+laporan kendala belajar anak di rumah kepada 
+Pengampu.  
+  F2.4.2 Sistem menampilkan catatan evaluasi 
+atau saran perbaikan yang dikirimkan oleh 
+Pengampu terkait perkembangan anak.  
+F2. Orang Tua  F2.5 Memantau kewajiban Tikrar dan 
+persiapan ujian anak.  F2.5.1  Sistem memberikan notifikasi jika 
+anak diwajibkan melakukan Tikrar 10x di 
+rumah sebagai konsekuensi belum tuntas 
+setoran.  
+  F2.5.2 Sistem menyediakan fitur bagi Orang 
+Tua untuk menandai kesiapan bagian hafalan 
+yang akan disetorkan anak pada Pekan 
+Muraja'ah.  
+F3. Koordinator 
+Tahfiz  F3.1 Mengelola klasifikasi tingkat (Grade) 
+santri secara sistematis.  F3.1.1 Sistem menyediakan fitur untuk 
+menentukan grade awal santri (Tahsin, 
+Takmil, Tahfiz) berdasarkan hasil tes 
+pendaftaran .  
+  F3.1.2 Sistem memfasilitasi evaluasi berkala 
+(setengah tahun/tahunan) untuk menentukan 
+kenaikan atau penurunan grade santri 
+berdasarkan performa hafalan .  
+--- Page 8 ---
+ 
+  F3.1.3 Sistem memungkinkan penyesuaian 
+target setoran harian secara otomatis 
+mengikuti perubahan grade santri .  
+F3. Koordinator 
+Tahfiz  F3.2 Melakukan intervensi dan 
+penanganan terhadap santri yang 
+mengalami stagnasi (stuck) .  F3.2.1 Sistem memberikan notifikasi otomatis 
+kepada Koordinator jika terdapat santri yang 
+tidak menunjukkan progres hafalan selama 
+periode tertentu.  
+  F3.2.2 Sistem menyediakan form khusus 
+untuk menginput hasil analisis penyebab 
+stagnasi (masalah keluarga, psikososial, atau 
+kecanduan game) .  
+  F3.2.3 Sistem mencatat langkah -langkah 
+korektif yang diambil Koordinator sebagai 
+bagian dari historis perkembangan santri.  
+F3. Koordinator 
+Tahfiz  F3.3 Mengawasi dan memvalidasi 
+pelaksanaan Ujian Kenaikan Juz (UKJ) .  F3.3.1 Sistem memungkinkan Koordinator 
+untuk menyimak dan memvalidasi setoran 
+ujian juz secara utuh bersama Pengampu.  
+  F3.3.2 Sistem menyediakan fitur otorisasi 
+kelulusan UKJ sebelum santri diperbolehkan 
+mengakses target hafalan di juz berikutnya.  
+F3. Koordinator 
+Tahfiz  F3.4 Memantau efektivitas program 
+melalui dashboard manajerial (Analytics).  F3.4.1 Sistem menyajikan visualisasi data 
+agregat (grafik tren) untuk melihat performa 
+program tahfiz secara keseluruhan antar grade 
+. 
+  F3.4.2 Sistem menyediakan fitur pembuatan 
+laporan rekapitulasi komprehensif sebagai 
+bahan pertimbangan rapat evaluasi bersama 
+Komite Sekolah .  
+F3. Koordinator 
+Tahfiz  F3.5 Mengelola jadwal dan materi Ujian 
+Tahfidz semesteran.  F3.5.1  Sistem menyediakan fitur penjadwalan 
+ujian massal (contoh: periode 18 –23 Mei) 
+dengan pembatasan waktu akses (deadline)  
+  F3.5.2 Sistem memungkinkan Koordinator 
+menetapkan materi ujian secara spesifik 
+(contoh: hanya 2 juz untuk kelas 9) yang 
+berbeda dari standar UKJ biasa.  
+F4. Kepala Sekolah & 
+Komite  F4.1 Memantau keberhasilan dan 
+ketercapaian target program secara makro.  F4.1.1 Sistem menyediakan Dashboard 
+eksekutif yang menampilkan ringkasan 
+statistik capaian hafalan seluruh santri secara 
+--- Page 9 ---
+ 
+agregat.  
+  F4.1.2 Sistem menampilkan visualisasi 
+perbandingan performa antar -grade (Tahsin, 
+Takmil, Tahfiz) sebagai bahan evaluasi 
+kebijakan.  
+F4. Kepala Sekolah & 
+Komite  F4.2 Mengakses laporan formal untuk 
+keperluan rapat strategis dan rapat komite 
+. F4.2.1 Sistem menyediakan akses langsung 
+untuk melihat dan mengunduh laporan 
+rekapitulasi capaian semesteran dan tahunan.  
+  F4.2.2 Sistem menyediakan data historis 
+untuk mendukung usulan strategis terkait 
+pengembangan infrastruktur atau aplikasi 
+khusus tahfiz.  
+F4. Kepala Sekolah & 
+Komite  F4.3 Mengelola dan melindungi aset 
+intelektual serta arsip sekolah .  F4.3.1 Sistem menyediakan modul 
+penyimpanan arsip digital untuk modul ajar 
+tahfiz yang merupakan hak cipta sekolah.  
+  F4.3.2 Sistem membatasi akses pengunduhan 
+modul ajar hanya untuk personel yang 
+memiliki otoritas tertentu guna mencegah 
+penyebaran tanpa izin .  
+F4. Kepala Sekolah & 
+Komite  F4.4 Mengawasi kualitas dan kontinuitas 
+program.  F4.4.1 Sistem menyediakan informasi 
+mengenai status ketersediaan personel 
+(pengampu) dan distribusi hafalan untuk 
+memastikan operasional tetap berjalan stabil .  
+F5. Staf Tata Usaha 
+(TU)  F5.1 Menjamin kontinuitas dan 
+pemeliharaan sistem informasi meskipun 
+terjadi rotasi staf .  F5.1.1 Sistem harus menyediakan modul 
+pengelolaan akun (User Management) untuk 
+mengalihkan hak akses saat terjadi pergantian 
+staf TU atau pengampu .  
+  F5.1.2 Sistem menyediakan fitur pencadangan 
+(backup) data secara otomatis dan berkala 
+untuk mencegah kehilangan data historis 
+sekolah.  
+--- Page 10 ---
+ 
+F5. Staf Tata Usaha 
+(TU)  F5.2 Mendukung manajemen data 
+administratif dan koordinasi antar unit 
+(Putra & Putri).  F5.2.1 Sistem memungkinkan TU untuk 
+melakukan sinkronisasi format pelaporan agar 
+seragam di seluruh unit sekolah.  
+  F5.2.2 Sistem menyediakan fitur pencarian 
+cepat data santri berdasarkan NIM atau 
+nama untuk keperluan surat -menyurat 
+administratif.  
+F5. Staf Tata Usaha 
+(TU)  F5.3 Mengelola arsip digital laporan 
+perkembangan santri secara terpusat.  F5.3.1 Sistem menyediakan fitur pengarsipan 
+otomatis untuk laporan bulanan dan 
+semesteran yang telah divalidasi oleh 
+Koordinator .  
+  F5.3.2 Sistem memungkinkan TU untuk 
+memverifikasi kelengkapan data administratif 
+(seperti kontak orang tua terbaru) guna 
+memastikan laporan tersampaikan dengan 
+benar.  
+F5. Staf Tata Usaha 
+(TU)  F5.4 Membantu operasional harian jika 
+terdapat kendala teknis pada 
+pengampu.  F5.4.1 Sistem memberikan otoritas 
+terbatas kepada TU untuk membantu 
+perbaikan kesalahan input data harian atas 
+persetujuan Koordinator.  
+ 
+ 
+ 
+ 
+ 
+ 
+kebutuhan non fungsional  
+ 
+--- Page 11 ---
+ 
+No Kategori  Kode 
+NFR Deskripsi Kebutuhan  
+1 Performance 
+(Performa)  NFR-
+01.1 Sistem harus mampu memuat profil 10 –12 santri dalam 
+satu halaqah dalam waktu kurang dari 2 detik untuk 
+menjaga efisiensi waktu simakan.  
+  NFR-
+01.2 Proses pengolahan data dari input harian menjadi grafik 
+tren progres harus dilakukan secara real-time atau 
+otomatis tanpa jeda waktu lama.  
+2 Security 
+(Keamanan)  NFR-
+02.1 Sistem wajib menerapkan Role-Based Access Control  
+(RBAC) yang ketat untuk memastikan data psikososial 
+atau catatan stagnasi santri hanya dapat diakses oleh 
+Koordinator.  
+  NFR-
+02.2 Modul ajar yang diunggah harus dilindungi dengan enkripsi 
+atau pembatasan hak unduh guna melindungi hak cipta 
+intelektual sekolah.  
+  NFR-
+02.3 Sistem tidak boleh menyediakan celah akses (URL/Login) 
+bagi santri sesuai dengan kebijakan larangan penggunaan 
+HP pribadi.  
+--- Page 12 ---
+ 
+3 Usability 
+(Kemudahan)  NFR-
+03.1 Antarmuka ( User Interface ) harus didesain sangat 
+sederhana dan intuitif agar dapat digunakan dengan 
+mudah oleh pengampu dengan berbagai tingkat literasi 
+digital.  
+  NFR-
+03.2 Sistem harus memiliki desain mobile -responsive  agar 
+orang tua dapat melakukan konfirmasi aktivitas Manzil 
+melalui ponsel dengan nyaman.  
+4 Availability 
+(Ketersediaan)  NFR-
+04.1 Sistem harus memiliki tingkat ketersediaan ( uptime ) 
+minimal 99% selama jam operasional utama tahfiz, yaitu 
+pukul 07:00 – 09:00 WIB.  
+  NFR-
+04.2 Sistem sepenuhnya bergantung pada konektivitas internet, 
+sehingga harus memiliki fitur optimasi data agar tetap stabil 
+pada jaringan yang terbatas.  
+5 Sustainability 
+(Keberlanjutan)  NFR-
+05.1 Sistem harus disertai dengan dokumentasi teknis dan 
+skema database yang jelas untuk memudahkan 
+pemeliharaan saat terjadi rotasi personel atau pengampu.  
+  NFR-
+05.2 Sistem harus memiliki fitur pencadangan data ( auto-
+backup ) harian yang dikelola oleh staf TU untuk mencegah 
+hilangnya data historis hafalan.  
+--- Page 13 ---
+ 
+6 Scalability 
+(Skalabilitas)  NFR-
+06.1 Arsitektur sistem harus bersifat generik sehingga dapat 
+dikembangkan atau diadopsi oleh unit lain (seperti Unit 
+Putri) tanpa merombak struktur dasar.  
+ 
+5. Batasan Sistem (Constraints)  
+Batasan sistem ini mendefinisikan ruang lingkup teknis, kebijakan, dan operasional yang 
+harus dipatuhi dalam pengembangan Sistem Informasi Tahfiz.  
+ 
+ 
+ 
+1. Batasan Akses Pengguna ( Strict User Access Control ) 
+● Larangan Gadget Santri:  Berdasarkan kebijakan sekolah, santri dilarang 
+memiliki HP pribadi selama 3 tahun masa pendidikan. Oleh karena itu, sistem 
+sama sekali tidak boleh menyediakan antarmuka (UI) untuk santri  . 
+● Otoritas Input Dewasa:  Seluruh input data digital sepenuhnya menjadi 
+tanggung jawab Pengampu (guru) dan Orang Tua.  
+● Hierarki Akses:  Akses terhadap modul ajar dan data sensitif lainnya dibatasi 
+berdasarkan peran ( Role-Based Access Control ) untuk menjaga privasi dan 
+keamanan data .  
+2. Batasan Arsitektur & Teknologi ( Technical Constraints ) 
+● Platform Web -Responsive:  Sistem harus berbasis Web agar dapat diakses 
+melalui berbagai perangkat (PC/Laptop untuk Guru, Smartphone untuk Orang 
+Tua) tanpa perlu instalasi aplikasi tambahan dari toko aplikasi.  
+● Kemudahan Penggunaan (Usability):  Mengingat latar belakang pengguna 
+(Guru Tahfiz) yang tidak semuanya memiliki keahlian IT tinggi, antarmuka 
+harus didesain sangat sederhana guna meminimalisir kesalahan input .  
+● Skalabilitas Unit:  Desain sistem harus bersifat generik agar dapat diadopsi oleh 
+unit lain (seperti unit Putri) jika di kemudian hari diputuskan untuk dilakukan 
+standarisasi yayasan .  
+3. Batasan Operasional & Waktu ( Operational Constraints ) 
+● Jendela Waktu Input:  Sesi tahfiz hanya berlangsung selama 2 jam (07:00 –
+09:00). Sistem harus mampu memproses input data 10 –12 santri per halafah 
+dalam durasi tersebut tanpa mengganggu proses simakan hafalan.  
+● Input Akumulatif harian:  Sistem harus menggantikan kebiasaan input manual 
+ke komputer yang biasanya hanya dilakukan sebulan sekali. Digitalisasi harus 
+terjadi setiap hari agar data tetap real-time. 
+--- Page 14 ---
+ 
+● Konektivitas Internet:  Karena berbasis web, operasional sistem sepenuhnya 
+bergantung pada ketersediaan jaringan internet di lingkungan sekolah dan 
+rumah orang tua.  
+4. Batasan Legalitas & Hak Atas Kekayaan Intelektual (HAKI)  
+● Hak Cipta Modul:  Seluruh modul ajar dan metode tahfiz merupakan hak cipta 
+milik sekolah. Sistem dilarang keras menyebarkan atau memungkinkan 
+pengunduhan dokumen modul ajar oleh pihak luar secara ilegal .  
+● Kerahasiaan Data:  Riwayat perkembangan santri (termasuk catatan 
+psikososial dari Koordinator) bersifat rahasia dan hanya boleh diakses oleh 
+pihak yang berkepentingan langsung .  
+5. Batasan Keberlanjutan ( Sustainability Constraints ) 
+● Kontinuitas Personel:  Sistem harus didesain agar mudah dikelola meskipun 
+terjadi rotasi staf TU atau pengampu yang berpindah unit/cabang.  
+● Kemudahan Pemeliharaan:  Dokumentasi teknis sistem (rancangan database 
+dan logika kode) harus jelas agar dapat dikembangkan atau diperbaiki oleh tim 
+IT sekolah di masa depan jika tim mahasiswa sudah menyelesaikan praktikum.  
