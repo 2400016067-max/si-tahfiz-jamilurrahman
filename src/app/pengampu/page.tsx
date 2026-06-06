@@ -2,14 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import RoleHeader from '@/components/RoleHeader';
-import { 
-  getSantriList, 
-  getHalaqahList, 
-  getSetoranList, 
-  getPesanList,
-  addSetoran, 
-  addPesan 
-} from '@/lib/store';
+import { supabase } from '@/lib/supabase';
 import { Santri, Halaqah, Setoran, Pesan } from '@/lib/mockData';
 import { 
   Users, 
@@ -25,6 +18,12 @@ import {
 } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
+// ---------------------------------------------------------------------------
+// Placeholder pengampu ID dari seed data (sebelum auth diimplementasikan).
+// Ini mewakili Ustadz Ahmad Fauzi (halaqah Putra).
+// ---------------------------------------------------------------------------
+const PENGAMPU_PLACEHOLDER_ID = '10000000-0000-0000-0000-000000000001';
+
 export default function PengampuDashboard() {
   const [mounted, setMounted] = useState(false);
   const [halaqahs, setHalaqahs] = useState<Halaqah[]>([]);
@@ -35,6 +34,10 @@ export default function PengampuDashboard() {
   // Setorans & Messages
   const [setorans, setSetorans] = useState<Setoran[]>([]);
   const [pesans, setPesans] = useState<Pesan[]>([]);
+
+  // Loading & error state
+  const [isLoading, setIsLoading] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   
   // Form Inputs
   const [sabkiDone, setSabkiDone] = useState<boolean>(false);
@@ -52,7 +55,7 @@ export default function PengampuDashboard() {
   // Pekan Murajaah Settings
   const [isPekanMurajaah, setIsPekanMurajaah] = useState<boolean>(false);
   const [targetDivider, setTargetDivider] = useState<number>(15);
-  const [mistakeThreshold, setMistakeThreshold] = useState<number>(1); // default 1 error per page
+  const [mistakeThreshold, setMistakeThreshold] = useState<number>(1);
 
   // Chats
   const [chatInput, setChatInput] = useState<string>('');
@@ -63,31 +66,130 @@ export default function PengampuDashboard() {
   // Active form tab
   const [activeTab, setActiveTab] = useState<'setoran' | 'pekan' | 'analitik' | 'pesan'>('setoran');
 
-  const loadData = useCallback(() => {
-    const h = getHalaqahList();
-    setHalaqahs(h);
-    if (h.length > 0 && !selectedHalaqahId) {
-      setSelectedHalaqahId(h[0].id);
+  // ---------------------------------------------------------------------------
+  // DATA LOADING — Supabase queries
+  // Semua field DB (snake_case) di-map ke interface mockData (camelCase)
+  // agar seluruh UI tidak perlu diubah.
+  // ---------------------------------------------------------------------------
+  const loadData = useCallback(async () => {
+    setIsLoading(true);
+    setSaveError(null);
+
+    try {
+      // 1. Fetch halaqah + nama pengampu (join ke tabel users)
+      const { data: halaqahData, error: halaqahError } = await supabase
+        .from('halaqah')
+        .select('id, nama, unit, users!pengampu_id(nama_lengkap)')
+        .eq('is_active', true);
+
+      if (halaqahError) throw new Error('Gagal memuat data halaqah: ' + halaqahError.message);
+
+      if (halaqahData) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const mappedHalaqah: Halaqah[] = (halaqahData as any[]).map((h) => ({
+          id: h.id,
+          nama: h.nama,
+          unit: h.unit as 'Putra' | 'Putri',
+          pengampu: h.users?.nama_lengkap ?? 'Unknown',
+        }));
+        setHalaqahs(mappedHalaqah);
+        if (mappedHalaqah.length > 0 && !selectedHalaqahId) {
+          setSelectedHalaqahId(mappedHalaqah[0].id);
+        }
+      }
+
+      // 2. Fetch santri
+      const { data: santriData, error: santriError } = await supabase
+        .from('santri')
+        .select('*');
+
+      if (santriError) throw new Error('Gagal memuat data santri: ' + santriError.message);
+
+      if (santriData) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const mappedSantri: Santri[] = (santriData as any[]).map((s) => ({
+          id: s.id,
+          nama: s.nama,
+          kelas: s.kelas,
+          grade: s.grade as 'Tahsin' | 'Takmil' | 'Tahfiz',
+          targetBaris: s.target_baris,
+          halaqahId: s.halaqah_id,
+          status: s.status as 'active' | 'stagnant',
+          stagnancyReason: s.stagnancy_reason ?? undefined,
+          stagnancyDetail: s.stagnancy_detail ?? undefined,
+          stagnancyAction: s.stagnancy_action ?? undefined,
+          parentName: s.parent_name,
+          parentPhone: s.parent_phone,
+          currentJuz: s.current_juz,
+          totalHafalanJuz: [],  // diisi terpisah via tabel hafalan_juz jika diperlukan
+        }));
+        setSantriList(mappedSantri);
+      }
+
+      // 3. Fetch setoran — ambil 30 hari terakhir untuk performa
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const fromDate = thirtyDaysAgo.toISOString().split('T')[0];
+
+      const { data: setoranData, error: setoranError } = await supabase
+        .from('setoran')
+        .select('*')
+        .gte('tanggal', fromDate)
+        .order('tanggal', { ascending: false });
+
+      if (setoranError) throw new Error('Gagal memuat data setoran: ' + setoranError.message);
+
+      if (setoranData) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const mappedSetoran: Setoran[] = (setoranData as any[]).map((s) => ({
+          id: s.id,
+          santriId: s.santri_id,
+          date: s.tanggal,
+          type: s.tipe as 'sabak' | 'sabki' | 'manzil',
+          surah: s.surah,
+          halamanMulai: s.halaman_mulai,
+          halamanSelesai: s.halaman_selesai,
+          baris: s.jumlah_baris,
+          kesalahan: s.jumlah_kesalahan,
+          status: s.status as 'lulus' | 'mengulang',
+          parentVerified: s.parent_verified,
+          notes: s.catatan ?? undefined,
+        }));
+        setSetorans(mappedSetoran);
+      }
+
+      // 4. Fetch pesan
+      const { data: pesanData, error: pesanError } = await supabase
+        .from('pesan')
+        .select('*')
+        .order('created_at', { ascending: true });
+
+      if (pesanError) throw new Error('Gagal memuat data pesan: ' + pesanError.message);
+
+      if (pesanData) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const mappedPesan: Pesan[] = (pesanData as any[]).map((p) => ({
+          id: p.id,
+          santriId: p.santri_id,
+          sender: p.tipe_pengirim as 'pengampu' | 'orangtua',
+          content: p.konten,
+          timestamp: p.created_at,
+        }));
+        setPesans(mappedPesan);
+      }
+
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Terjadi kesalahan tidak diketahui.';
+      console.error('[PengampuDashboard] loadData error:', err);
+      setSaveError(msg);
+    } finally {
+      setIsLoading(false);
     }
-
-    const s = getSantriList();
-    setSantriList(s);
-
-    const seto = getSetoranList();
-    setSetorans(seto);
-
-    const p = getPesanList();
-    setPesans(p);
   }, [selectedHalaqahId]);
 
   useEffect(() => {
     setMounted(true);
     loadData();
-    
-    // Storage listener
-    const handleUpdate = () => loadData();
-    window.addEventListener('tahfiz_storage_update', handleUpdate);
-    return () => window.removeEventListener('tahfiz_storage_update', handleUpdate);
   }, [loadData]);
 
   // Switch student
@@ -105,7 +207,6 @@ export default function PengampuDashboard() {
     if (student.grade === 'Tahfiz') defaultBaris = 12;
     setSabakBaris(defaultBaris);
 
-    // Get current progress or set default surah based on target
     setSabakSurah(student.grade === 'Tahsin' ? "Iqra' / Juz 30" : 'Juz 30');
     setSabakKesalahan(0);
     setSabakNotes('');
@@ -132,7 +233,6 @@ export default function PengampuDashboard() {
 
   // Check if yesterday's Manzil was verified by parent
   const checkManzilStatus = (studentId: string) => {
-    // Get yesterday's date
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     const yesterdayStr = yesterday.toISOString().split('T')[0];
@@ -151,24 +251,34 @@ export default function PengampuDashboard() {
     return null;
   };
 
-  // Submit Sabki
-  const handleSaveSabki = (e: React.FormEvent) => {
+  // ---------------------------------------------------------------------------
+  // SUBMIT SABKI — INSERT ke tabel setoran di Supabase
+  // ---------------------------------------------------------------------------
+  const handleSaveSabki = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedSantri) return;
 
-    addSetoran({
-      santriId: selectedSantri.id,
-      date: new Date().toISOString().split('T')[0],
-      type: 'sabki',
-      surah: sabkiSurah || 'Murojaah Sabki',
-      halamanMulai: sabkiHalaman,
-      halamanSelesai: sabkiHalaman,
-      baris: 15, // full page review
-      kesalahan: sabkiKesalahan,
-      status: sabkiKesalahan <= mistakeThreshold ? 'lulus' : 'mengulang',
-      parentVerified: false,
-      notes: 'Diinput oleh Pengampu'
+    setSaveError(null);
+
+    const { error } = await supabase.from('setoran').insert({
+      santri_id:        selectedSantri.id,
+      tanggal:          new Date().toISOString().split('T')[0],
+      tipe:             'sabki',
+      surah:            sabkiSurah || 'Murojaah Sabki',
+      halaman_mulai:    sabkiHalaman,
+      halaman_selesai:  sabkiHalaman,
+      jumlah_baris:     15,
+      jumlah_kesalahan: sabkiKesalahan,
+      status:           sabkiKesalahan <= mistakeThreshold ? 'lulus' : 'mengulang',
+      parent_verified:  false,
+      catatan:          'Diinput oleh Pengampu',
+      dicatat_oleh:     PENGAMPU_PLACEHOLDER_ID,
     });
+
+    if (error) {
+      setSaveError('Gagal menyimpan Sabki: ' + error.message);
+      return;
+    }
 
     if (sabkiKesalahan <= mistakeThreshold) {
       setSabkiDone(true);
@@ -176,29 +286,38 @@ export default function PengampuDashboard() {
     } else {
       alert('Sabki memiliki kesalahan melebihi batas. Santri harus mengulang Sabki terlebih dahulu.');
     }
-    loadData();
+    await loadData();
   };
 
-  // Submit Sabak
-  const handleSaveSabak = (e: React.FormEvent) => {
+  // ---------------------------------------------------------------------------
+  // SUBMIT SABAK — INSERT ke tabel setoran di Supabase
+  // ---------------------------------------------------------------------------
+  const handleSaveSabak = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedSantri) return;
 
+    setSaveError(null);
     const autoStatus = sabakKesalahan <= mistakeThreshold ? 'lulus' : 'mengulang';
 
-    addSetoran({
-      santriId: selectedSantri.id,
-      date: new Date().toISOString().split('T')[0],
-      type: 'sabak',
-      surah: sabakSurah,
-      halamanMulai: sabakHalMulai,
-      halamanSelesai: sabakHalSelesai,
-      baris: sabakBaris,
-      kesalahan: sabakKesalahan,
-      status: autoStatus,
-      parentVerified: false,
-      notes: sabakNotes
+    const { error } = await supabase.from('setoran').insert({
+      santri_id:        selectedSantri.id,
+      tanggal:          new Date().toISOString().split('T')[0],
+      tipe:             'sabak',
+      surah:            sabakSurah,
+      halaman_mulai:    sabakHalMulai,
+      halaman_selesai:  sabakHalSelesai,
+      jumlah_baris:     sabakBaris,
+      jumlah_kesalahan: sabakKesalahan,
+      status:           autoStatus,
+      parent_verified:  false,
+      catatan:          sabakNotes || null,
+      dicatat_oleh:     PENGAMPU_PLACEHOLDER_ID,
     });
+
+    if (error) {
+      setSaveError('Gagal menyimpan Sabak: ' + error.message);
+      return;
+    }
 
     if (autoStatus === 'mengulang') {
       alert(`Setoran Sabak ditandai MENGULANG karena memiliki ${sabakKesalahan} kesalahan (maksimal ${mistakeThreshold}). Santri diwajibkan mengikuti program Tikrar (pengulangan 10x).`);
@@ -206,20 +325,35 @@ export default function PengampuDashboard() {
       alert('Setoran Sabak berhasil direkam dengan status LULUS.');
     }
 
-    loadData();
-    // Refresh select student panel
-    const updated = getSantriList().find(s => s.id === selectedSantri.id);
+    await loadData();
+    // Refresh selected student dari state terbaru
+    const updated = santriList.find(s => s.id === selectedSantri.id);
     if (updated) setSelectedSantri(updated);
   };
 
-  // Submit Message/Chat
-  const handleSendMessage = (e: React.FormEvent) => {
+  // ---------------------------------------------------------------------------
+  // SUBMIT PESAN — INSERT ke tabel pesan di Supabase
+  // ---------------------------------------------------------------------------
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedSantri || !chatInput.trim()) return;
 
-    addPesan(selectedSantri.id, 'pengampu', chatInput.trim());
+    setSaveError(null);
+
+    const { error } = await supabase.from('pesan').insert({
+      santri_id:     selectedSantri.id,
+      pengirim_id:   PENGAMPU_PLACEHOLDER_ID,
+      tipe_pengirim: 'pengampu',
+      konten:        chatInput.trim(),
+    });
+
+    if (error) {
+      setSaveError('Gagal mengirim pesan: ' + error.message);
+      return;
+    }
+
     setChatInput('');
-    loadData();
+    await loadData();
   };
 
   // Export report simulation
@@ -232,11 +366,11 @@ export default function PengampuDashboard() {
   const getChartData = (studentId: string) => {
     const studentSetorans = setorans
       .filter(s => s.santriId === studentId && s.type === 'sabak' && s.status === 'lulus')
-      .slice(-7) // last 7 sessions
-      .reverse(); // chronological
+      .slice(-7)
+      .reverse();
 
     return studentSetorans.map(s => ({
-      tanggal: s.date.slice(5), // MM-DD
+      tanggal: s.date.slice(5),
       baris: s.baris,
       kesalahan: s.kesalahan
     }));
@@ -249,6 +383,21 @@ export default function PengampuDashboard() {
       <RoleHeader roleName="Pengampu / Murobbi" activeRole="pengampu" />
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        {/* Global error banner */}
+        {saveError && (
+          <div className="mb-4 p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-xl flex items-center space-x-2 text-red-700 dark:text-red-400 text-xs font-semibold">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span>{saveError}</span>
+          </div>
+        )}
+
+        {/* Loading indicator */}
+        {isLoading && (
+          <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-xl text-blue-700 dark:text-blue-400 text-xs font-semibold text-center">
+            Memuat data dari Supabase…
+          </div>
+        )}
         
         {/* Top Controls: Halaqah Selection & Reports */}
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
@@ -476,7 +625,8 @@ export default function PengampuDashboard() {
                               </div>
                               <button 
                                 type="submit"
-                                className="w-full bg-slate-800 dark:bg-slate-700 text-white py-1.5 rounded-lg text-xs font-bold hover:bg-slate-750 transition-colors"
+                                disabled={isLoading}
+                                className="w-full bg-slate-800 dark:bg-slate-700 text-white py-1.5 rounded-lg text-xs font-bold hover:bg-slate-750 transition-colors disabled:opacity-60"
                               >
                                 Simpan Sabki
                               </button>
@@ -562,7 +712,8 @@ export default function PengampuDashboard() {
 
                             <button 
                               type="submit"
-                              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-1.5 rounded-lg text-xs font-bold transition-colors"
+                              disabled={isLoading}
+                              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-1.5 rounded-lg text-xs font-bold transition-colors disabled:opacity-60"
                             >
                               Simpan Setoran Sabak
                             </button>
@@ -761,7 +912,8 @@ export default function PengampuDashboard() {
                         />
                         <button 
                           type="submit"
-                          className="bg-emerald-600 hover:bg-emerald-700 text-white p-2.5 rounded-lg transition-colors"
+                          disabled={isLoading}
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white p-2.5 rounded-lg transition-colors disabled:opacity-60"
                         >
                           <Send className="h-4 w-4" />
                         </button>

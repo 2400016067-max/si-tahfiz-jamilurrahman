@@ -1,13 +1,8 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import RoleHeader from '@/components/RoleHeader';
-import { 
-  getSantriList, 
-  getSetoranList, 
-  getModulList, 
-  getUjianList 
-} from '@/lib/store';
+import { supabase } from '@/lib/supabase';
 import { Santri, Setoran, ModulAjar, UjianJuz } from '@/lib/mockData';
 import { 
   Award, 
@@ -28,30 +23,153 @@ export default function KepalaSekolahDashboard() {
   const [moduls, setModuls] = useState<ModulAjar[]>([]);
   const [ujians, setUjians] = useState<UjianJuz[]>([]);
 
+  // Loading & error state
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   // Search query
   const [searchQuery, setSearchQuery] = useState('');
 
   // Lock status simulator for HAKI modules
   const [userOtorisasi, setUserOtorisasi] = useState<boolean>(false);
 
+  // ---------------------------------------------------------------------------
+  // DATA LOADING — Supabase queries
+  // ---------------------------------------------------------------------------
+  const loadData = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
+
+    try {
+      // 1. Fetch semua hafalan_juz — dibutuhkan untuk totalHafalanJuz per santri
+      const { data: hafalanData, error: hafalanError } = await supabase
+        .from('hafalan_juz')
+        .select('santri_id, juz');
+
+      if (hafalanError) throw new Error('Gagal memuat hafalan_juz: ' + hafalanError.message);
+
+      // Bangun map: santri_id → number[]
+      const hafalanMap: Record<string, number[]> = {};
+      (hafalanData ?? []).forEach((h: { santri_id: string; juz: number }) => {
+        if (!hafalanMap[h.santri_id]) hafalanMap[h.santri_id] = [];
+        hafalanMap[h.santri_id].push(h.juz);
+      });
+
+      // 2. Fetch santri
+      const { data: santriData, error: santriError } = await supabase
+        .from('santri')
+        .select('*');
+
+      if (santriError) throw new Error('Gagal memuat santri: ' + santriError.message);
+
+      if (santriData) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const mapped: Santri[] = (santriData as any[]).map((s) => ({
+          id: s.id,
+          nama: s.nama,
+          kelas: s.kelas,
+          grade: s.grade as 'Tahsin' | 'Takmil' | 'Tahfiz',
+          targetBaris: s.target_baris,
+          halaqahId: s.halaqah_id,
+          status: s.status as 'active' | 'stagnant',
+          stagnancyReason: s.stagnancy_reason ?? undefined,
+          stagnancyDetail: s.stagnancy_detail ?? undefined,
+          stagnancyAction: s.stagnancy_action ?? undefined,
+          parentName: s.parent_name,
+          parentPhone: s.parent_phone,
+          currentJuz: s.current_juz,
+          // totalHafalanJuz diisi dari join tabel hafalan_juz
+          totalHafalanJuz: hafalanMap[s.id] ?? [],
+        }));
+        setSantriList(mapped);
+      }
+
+      // 3. Fetch SEMUA setoran (dibutuhkan untuk chart rerata baris per grade)
+      //    Kepala Sekolah melihat data historis keseluruhan, bukan hanya 30 hari
+      const { data: setoranData, error: setoranError } = await supabase
+        .from('setoran')
+        .select('id, santri_id, tanggal, tipe, surah, halaman_mulai, halaman_selesai, jumlah_baris, jumlah_kesalahan, status, parent_verified, catatan')
+        .order('tanggal', { ascending: false });
+
+      if (setoranError) throw new Error('Gagal memuat setoran: ' + setoranError.message);
+
+      if (setoranData) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const mappedSetoran: Setoran[] = (setoranData as any[]).map((s) => ({
+          id: s.id,
+          santriId: s.santri_id,
+          date: s.tanggal,
+          type: s.tipe as 'sabak' | 'sabki' | 'manzil',
+          surah: s.surah,
+          halamanMulai: s.halaman_mulai,
+          halamanSelesai: s.halaman_selesai,
+          baris: s.jumlah_baris,
+          kesalahan: s.jumlah_kesalahan,
+          status: s.status as 'lulus' | 'mengulang',
+          parentVerified: s.parent_verified,
+          notes: s.catatan ?? undefined,
+        }));
+        setSetorans(mappedSetoran);
+      }
+
+      // 4. Fetch modul_ajar
+      //    Kolom DB: judul, file_size, file_url → dimap ke interface field: judul, size, fileUrl
+      const { data: modulData, error: modulError } = await supabase
+        .from('modul_ajar')
+        .select('id, judul, file_url, file_size, akses_role');
+
+      if (modulError) throw new Error('Gagal memuat modul_ajar: ' + modulError.message);
+
+      if (modulData) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const mappedModul: ModulAjar[] = (modulData as any[]).map((m) => ({
+          id: m.id,
+          judul: m.judul,
+          fileUrl: m.file_url ?? '',
+          size: m.file_size ?? '—',   // file_size → size (interface field)
+        }));
+        setModuls(mappedModul);
+      }
+
+      // 5. Fetch ujian_juz
+      const { data: ujianData, error: ujianError } = await supabase
+        .from('ujian_juz')
+        .select('id, santri_id, juz, tanggal_ujian, jumlah_kesalahan, status, approved_by_koordinator')
+        .order('tanggal_ujian', { ascending: false });
+
+      if (ujianError) throw new Error('Gagal memuat ujian_juz: ' + ujianError.message);
+
+      if (ujianData) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const mappedUjian: UjianJuz[] = (ujianData as any[]).map((u) => ({
+          id: u.id,
+          santriId: u.santri_id,
+          juz: u.juz,
+          date: u.tanggal_ujian,
+          kesalahan: u.jumlah_kesalahan,
+          status: u.status as 'lulus' | 'mengulang',
+          approvedByKoordinator: u.approved_by_koordinator,
+        }));
+        setUjians(mappedUjian);
+      }
+
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Terjadi kesalahan tidak diketahui.';
+      console.error('[KepalaSekolahDashboard] loadData error:', err);
+      setLoadError(msg);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     setMounted(true);
     loadData();
+  }, [loadData]);
 
-    // Storage listener
-    const handleUpdate = () => loadData();
-    window.addEventListener('tahfiz_storage_update', handleUpdate);
-    return () => window.removeEventListener('tahfiz_storage_update', handleUpdate);
-  }, []);
-
-  const loadData = () => {
-    setSantriList(getSantriList());
-    setSetorans(getSetoranList());
-    setModuls(getModulList());
-    setUjians(getUjianList());
-  };
-
-  // Pie chart data for grade distribution
+  // ---------------------------------------------------------------------------
+  // COMPUTED — Pie chart: distribusi grade santri
+  // ---------------------------------------------------------------------------
   const getGradePieData = () => {
     const grades = { Tahsin: 0, Takmil: 0, Tahfiz: 0 };
     santriList.forEach(s => {
@@ -61,19 +179,26 @@ export default function KepalaSekolahDashboard() {
     });
 
     return [
-      { name: 'Tahsin', value: grades.Tahsin, color: '#f59e0b' }, // Amber
-      { name: 'Takmil', value: grades.Takmil, color: '#3b82f6' }, // Blue
-      { name: 'Tahfiz', value: grades.Tahfiz, color: '#10b981' }  // Emerald
+      { name: 'Tahsin', value: grades.Tahsin, color: '#f59e0b' },
+      { name: 'Takmil', value: grades.Takmil, color: '#3b82f6' },
+      { name: 'Tahfiz', value: grades.Tahfiz, color: '#10b981' }
     ];
   };
 
-  // Bar chart data for aggregate performance: Average lines memorized per grade
+  // ---------------------------------------------------------------------------
+  // COMPUTED — Bar chart: rerata baris setoran sukses per grade
+  // Data dari tabel setoran (semua riwayat, join santriList di client)
+  // ---------------------------------------------------------------------------
   const getAverageLinesData = () => {
-    const counts = { Tahsin: { sum: 0, count: 0 }, Takmil: { sum: 0, count: 0 }, Tahfiz: { sum: 0, count: 0 } };
-    
-    // Group all passed Sabak setorans
+    const counts = {
+      Tahsin: { sum: 0, count: 0 },
+      Takmil: { sum: 0, count: 0 },
+      Tahfiz: { sum: 0, count: 0 }
+    };
+
+    // Hanya Sabak yang lulus — mencerminkan capaian hafalan baru
     const sabakSetorans = setorans.filter(s => s.type === 'sabak' && s.status === 'lulus');
-    
+
     sabakSetorans.forEach(s => {
       const student = santriList.find(st => st.id === s.santriId);
       if (student && counts[student.grade]) {
@@ -102,11 +227,12 @@ export default function KepalaSekolahDashboard() {
   };
 
   // Filter student list based on search
-  const filteredStudents = santriList.filter(s => 
+  const filteredStudents = santriList.filter(s =>
     s.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
     s.kelas.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Derived stats
   const stagnantCount = santriList.filter(s => s.status === 'stagnant').length;
   const totalPassedUjians = ujians.filter(u => u.status === 'lulus' && u.approvedByKoordinator).length;
 
@@ -114,9 +240,24 @@ export default function KepalaSekolahDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100">
-      <RoleHeader roleName="Kepala Sekolah & Komite" activeRole="kepalasekolah" />
+      <RoleHeader roleName="Kepala Sekolah &amp; Komite" activeRole="kepalasekolah" />
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        {/* Error banner */}
+        {loadError && (
+          <div className="mb-6 p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-xl flex items-center space-x-2 text-red-700 dark:text-red-400 text-xs font-semibold">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <span>{loadError}</span>
+          </div>
+        )}
+
+        {/* Loading indicator */}
+        {isLoading && (
+          <div className="mb-6 p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-xl text-blue-700 dark:text-blue-400 text-xs font-semibold text-center">
+            Memuat data dari Supabase…
+          </div>
+        )}
         
         {/* Executive Stats Dashboard (F4.1.1) */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -161,7 +302,7 @@ export default function KepalaSekolahDashboard() {
             <div>
               <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Total Setoran Direkam</p>
               <h4 className="text-xl font-extrabold text-slate-800 dark:text-slate-100 mt-0.5">{setorans.length} Setoran</h4>
-              <p className="text-[10px] text-slate-500 mt-0.5">Sabak, Sabki, & Manzil</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">Sabak, Sabki, &amp; Manzil</p>
             </div>
           </div>
 
@@ -241,7 +382,7 @@ export default function KepalaSekolahDashboard() {
             <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3 mb-4">
               <h3 className="font-extrabold text-sm text-slate-800 dark:text-slate-100 flex items-center space-x-2">
                 <FolderLock className="h-5 w-5 text-amber-500" />
-                <span>Arsip Modul Ajar & HAKI Sekolah</span>
+                <span>Arsip Modul Ajar &amp; HAKI Sekolah</span>
               </h3>
               
               <div className="flex items-center space-x-2">
@@ -264,6 +405,7 @@ export default function KepalaSekolahDashboard() {
                     </div>
                     <div>
                       <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">{mod.judul}</h4>
+                      {/* mod.size ← DB kolom file_size */}
                       <p className="text-[10px] text-slate-450 mt-0.5">Ukuran: {mod.size} · Hak Cipta MTs TQ</p>
                     </div>
                   </div>
@@ -276,6 +418,10 @@ export default function KepalaSekolahDashboard() {
                   </button>
                 </div>
               ))}
+
+              {moduls.length === 0 && !isLoading && (
+                <p className="text-center text-xs text-slate-400 py-6">Belum ada modul ajar tersimpan.</p>
+              )}
             </div>
             
             <p className="text-[9px] text-red-500 font-bold mt-4">
@@ -286,7 +432,7 @@ export default function KepalaSekolahDashboard() {
           {/* Student Search & Report List (F4.2) */}
           <div className="lg:col-span-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm">
             <h3 className="font-extrabold text-sm text-slate-800 dark:text-slate-100 border-b border-slate-100 dark:border-slate-800 pb-3 mb-4">
-              🔍 Peninjauan Capaian Santri & Rapat Komite
+              🔍 Peninjauan Capaian Santri &amp; Rapat Komite
             </h3>
 
             {/* Search Input */}
@@ -307,6 +453,7 @@ export default function KepalaSekolahDashboard() {
                   <div>
                     <h4 className="font-bold text-slate-850 dark:text-slate-200">{student.nama}</h4>
                     <p className="text-[10px] text-slate-500 mt-0.5">
+                      {/* totalHafalanJuz dari tabel hafalan_juz (di-join saat loadData) */}
                       Kelas {student.kelas} · Juz Selesai: {student.totalHafalanJuz.length > 0 ? student.totalHafalanJuz.join(', ') : 'Belum ada'}
                     </p>
                   </div>

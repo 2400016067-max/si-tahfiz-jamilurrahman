@@ -2,13 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import RoleHeader from '@/components/RoleHeader';
-import { 
-  getSantriList, 
-  getSetoranList, 
-  getPesanList,
-  addSetoran, 
-  addPesan 
-} from '@/lib/store';
+import { supabase } from '@/lib/supabase';
 import { Santri, Setoran, Pesan } from '@/lib/mockData';
 import { 
   User, 
@@ -26,11 +20,19 @@ export default function OrangTuaDashboard() {
   const [mounted, setMounted] = useState(false);
   const [santriList, setSantriList] = useState<Santri[]>([]);
   const [selectedSantriId, setSelectedSantriId] = useState<string>('');
-  
+
   // Child specific state
   const [setorans, setSetorans] = useState<Setoran[]>([]);
   const [pesans, setPesans] = useState<Pesan[]>([]);
-  
+
+  // Loading & error state
+  const [isLoading, setIsLoading] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Maps santri_id → parent_user_id (dari DB).
+  // Diperlukan karena pesan.pengirim_id NOT NULL dan harus berisi UUID user nyata.
+  const [parentUserIdMap, setParentUserIdMap] = useState<Record<string, string>>({});
+
   // Manzil Form State
   const [manzilSurah, setManzilSurah] = useState<string>('Juz 30');
   const [manzilHalMulai, setManzilHalMulai] = useState<number>(582);
@@ -44,28 +46,133 @@ export default function OrangTuaDashboard() {
   // Reply Form
   const [replyInput, setReplyInput] = useState<string>('');
 
-  const loadData = useCallback(() => {
-    const s = getSantriList();
-    setSantriList(s);
-    if (s.length > 0 && !selectedSantriId) {
-      setSelectedSantriId(s[0].id); // default first student
+  // ---------------------------------------------------------------------------
+  // DATA LOADING — Supabase queries
+  // ---------------------------------------------------------------------------
+  const loadData = useCallback(async () => {
+    setIsLoading(true);
+    setSaveError(null);
+
+    try {
+      // 1. Fetch semua juz hafalan santri (untuk totalHafalanJuz)
+      const { data: hafalanData, error: hafalanError } = await supabase
+        .from('hafalan_juz')
+        .select('santri_id, juz');
+
+      if (hafalanError) throw new Error('Gagal memuat hafalan_juz: ' + hafalanError.message);
+
+      // Bangun map: santri_id → number[]
+      const hafalanMap: Record<string, number[]> = {};
+      (hafalanData ?? []).forEach((h: { santri_id: string; juz: number }) => {
+        if (!hafalanMap[h.santri_id]) hafalanMap[h.santri_id] = [];
+        hafalanMap[h.santri_id].push(h.juz);
+      });
+
+      // 2. Fetch santri
+      const { data: santriData, error: santriError } = await supabase
+        .from('santri')
+        .select('*');
+
+      if (santriError) throw new Error('Gagal memuat santri: ' + santriError.message);
+
+      if (santriData) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const mapped: Santri[] = (santriData as any[]).map((s) => ({
+          id: s.id,
+          nama: s.nama,
+          kelas: s.kelas,
+          grade: s.grade as 'Tahsin' | 'Takmil' | 'Tahfiz',
+          targetBaris: s.target_baris,
+          halaqahId: s.halaqah_id,
+          status: s.status as 'active' | 'stagnant',
+          stagnancyReason: s.stagnancy_reason ?? undefined,
+          stagnancyDetail: s.stagnancy_detail ?? undefined,
+          stagnancyAction: s.stagnancy_action ?? undefined,
+          parentName: s.parent_name,
+          parentPhone: s.parent_phone,
+          currentJuz: s.current_juz,
+          totalHafalanJuz: hafalanMap[s.id] ?? [],
+        }));
+        setSantriList(mapped);
+
+        // Simpan map santri_id → parent_user_id untuk keperluan insert pesan
+        const pidMap: Record<string, string> = {};
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (santriData as any[]).forEach((s) => {
+          if (s.parent_user_id) pidMap[s.id] = s.parent_user_id;
+        });
+        setParentUserIdMap(pidMap);
+
+        // Set default santri yang dipilih
+        if (mapped.length > 0 && !selectedSantriId) {
+          setSelectedSantriId(mapped[0].id);
+        }
+      }
+
+      // 3. Fetch setoran — 30 hari terakhir
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const fromDate = thirtyDaysAgo.toISOString().split('T')[0];
+
+      const { data: setoranData, error: setoranError } = await supabase
+        .from('setoran')
+        .select('*')
+        .gte('tanggal', fromDate)
+        .order('tanggal', { ascending: false });
+
+      if (setoranError) throw new Error('Gagal memuat setoran: ' + setoranError.message);
+
+      if (setoranData) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const mappedSetoran: Setoran[] = (setoranData as any[]).map((s) => ({
+          id: s.id,
+          santriId: s.santri_id,
+          date: s.tanggal,
+          type: s.tipe as 'sabak' | 'sabki' | 'manzil',
+          surah: s.surah,
+          halamanMulai: s.halaman_mulai,
+          halamanSelesai: s.halaman_selesai,
+          baris: s.jumlah_baris,
+          kesalahan: s.jumlah_kesalahan,
+          status: s.status as 'lulus' | 'mengulang',
+          parentVerified: s.parent_verified,
+          notes: s.catatan ?? undefined,
+        }));
+        setSetorans(mappedSetoran);
+      }
+
+      // 4. Fetch pesan
+      const { data: pesanData, error: pesanError } = await supabase
+        .from('pesan')
+        .select('*')
+        .order('created_at', { ascending: true });
+
+      if (pesanError) throw new Error('Gagal memuat pesan: ' + pesanError.message);
+
+      if (pesanData) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const mappedPesan: Pesan[] = (pesanData as any[]).map((p) => ({
+          id: p.id,
+          santriId: p.santri_id,
+          sender: p.tipe_pengirim as 'pengampu' | 'orangtua',
+          content: p.konten,
+          timestamp: p.created_at,
+        }));
+        setPesans(mappedPesan);
+      }
+
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Terjadi kesalahan tidak diketahui.';
+      console.error('[OrangTuaDashboard] loadData error:', err);
+      setSaveError(msg);
+    } finally {
+      setIsLoading(false);
     }
-
-    const seto = getSetoranList();
-    setSetorans(seto);
-
-    const p = getPesanList();
-    setPesans(p);
   }, [selectedSantriId]);
 
   useEffect(() => {
     setMounted(true);
     loadData();
-
-    // Storage listener
-    const handleUpdate = () => loadData();
-    window.addEventListener('tahfiz_storage_update', handleUpdate);
-    return () => window.removeEventListener('tahfiz_storage_update', handleUpdate);
   }, [loadData]);
 
   const activeSantri = santriList.find(s => s.id === selectedSantriId);
@@ -78,8 +185,10 @@ export default function OrangTuaDashboard() {
   const todayStr = new Date().toISOString().split('T')[0];
   const todaySchoolSetorans = childSetorans.filter(s => s.date === todayStr && s.type !== 'manzil');
 
-  // Handle Manzil Confirmation
-  const handleSaveManzil = (e: React.FormEvent) => {
+  // ---------------------------------------------------------------------------
+  // KONFIRMASI MANZIL — INSERT ke tabel setoran, parent_verified = true
+  // ---------------------------------------------------------------------------
+  const handleSaveManzil = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeSantri) return;
 
@@ -88,45 +197,79 @@ export default function OrangTuaDashboard() {
       return;
     }
 
-    addSetoran({
-      santriId: activeSantri.id,
-      date: new Date().toISOString().split('T')[0], // Today's review
-      type: 'manzil',
-      surah: manzilSurah,
-      halamanMulai: manzilHalMulai,
-      halamanSelesai: manzilHalSelesai,
-      baris: manzilAktualHalaman * 15, // approx lines
-      kesalahan: 0, // parents don't mark errors, just verify attendance
-      status: 'lulus',
-      parentVerified: true,
-      notes: `Divalidasi oleh Orang Tua (${signatureName || activeSantri.parentName})`
+    setSaveError(null);
+
+    // Ambil parent_user_id untuk kolom parent_verified_by
+    const parentUserId = parentUserIdMap[activeSantri.id] ?? null;
+
+    const { error } = await supabase.from('setoran').insert({
+      santri_id:          activeSantri.id,
+      tanggal:            new Date().toISOString().split('T')[0],
+      tipe:               'manzil',
+      surah:              manzilSurah,
+      halaman_mulai:      manzilHalMulai,
+      halaman_selesai:    manzilHalSelesai,
+      jumlah_baris:       manzilAktualHalaman * 15,
+      jumlah_kesalahan:   0,
+      status:             'lulus',
+      parent_verified:    true,
+      parent_verified_by: parentUserId,
+      parent_verified_at: new Date().toISOString(),
+      halaman_aktual:     manzilAktualHalaman,
+      catatan:            `Divalidasi oleh Orang Tua (${signatureName || activeSantri.parentName})`,
     });
+
+    if (error) {
+      setSaveError('Gagal menyimpan konfirmasi Manzil: ' + error.message);
+      return;
+    }
 
     alert('Laporan Manzil berhasil dikirim ke Pengampu. Jazakumullahu khairan.');
     setSignatureDone(true);
-    loadData();
+    await loadData();
   };
 
-  // Reply message
-  const handleSendReply = (e: React.FormEvent) => {
+  // ---------------------------------------------------------------------------
+  // KIRIM PESAN — INSERT ke tabel pesan sebagai orangtua
+  // ---------------------------------------------------------------------------
+  const handleSendReply = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeSantri || !replyInput.trim()) return;
 
-    addPesan(activeSantri.id, 'orangtua', replyInput.trim());
+    setSaveError(null);
+
+    // pengirim_id harus berisi UUID user valid (NOT NULL di schema)
+    const parentUserId = parentUserIdMap[activeSantri.id];
+    if (!parentUserId) {
+      setSaveError('Tidak dapat mengirim pesan: akun orang tua tidak ditemukan di database.');
+      return;
+    }
+
+    const { error } = await supabase.from('pesan').insert({
+      santri_id:     activeSantri.id,
+      pengirim_id:   parentUserId,
+      tipe_pengirim: 'orangtua',
+      konten:        replyInput.trim(),
+    });
+
+    if (error) {
+      setSaveError('Gagal mengirim pesan: ' + error.message);
+      return;
+    }
+
     setReplyInput('');
-    loadData();
+    await loadData();
   };
 
   // Prepare chart data for parent dashboard
   const getWeeklyStats = () => {
-    // Group passed school setoran lines by day
-    const last7Days = Array.from({ length: 5 }, (_, i) => {
+    const last5Days = Array.from({ length: 5 }, (_, i) => {
       const d = new Date();
       d.setDate(d.getDate() - i);
       return d.toISOString().split('T')[0];
     }).reverse();
 
-    return last7Days.map(dateStr => {
+    return last5Days.map(dateStr => {
       const daySetorans = childSetorans.filter(s => s.date === dateStr && s.type === 'sabak' && s.status === 'lulus');
       const totalLines = daySetorans.reduce((sum, s) => sum + s.baris, 0);
       return {
@@ -159,6 +302,21 @@ export default function OrangTuaDashboard() {
       <RoleHeader roleName="Orang Tua / Wali Santri" activeRole="orangtua" />
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+        {/* Global error banner */}
+        {saveError && (
+          <div className="mb-4 p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-xl flex items-center space-x-2 text-red-700 dark:text-red-400 text-xs font-semibold">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span>{saveError}</span>
+          </div>
+        )}
+
+        {/* Loading indicator */}
+        {isLoading && (
+          <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-xl text-blue-700 dark:text-blue-400 text-xs font-semibold text-center">
+            Memuat data dari Supabase…
+          </div>
+        )}
         
         {/* Child Selector portal simulation */}
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl mb-6 flex items-center justify-between shadow-sm">
@@ -309,7 +467,8 @@ export default function OrangTuaDashboard() {
                   />
                   <button
                     type="submit"
-                    className="bg-teal-600 hover:bg-teal-700 text-white p-2.5 rounded-lg transition-colors"
+                    disabled={isLoading}
+                    className="bg-teal-600 hover:bg-teal-700 text-white p-2.5 rounded-lg transition-colors disabled:opacity-60"
                   >
                     <Send className="h-4 w-4" />
                   </button>
@@ -434,7 +593,8 @@ export default function OrangTuaDashboard() {
 
                   <button
                     type="submit"
-                    className="w-full bg-teal-600 hover:bg-teal-700 text-white py-2 rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center space-x-1"
+                    disabled={isLoading}
+                    className="w-full bg-teal-600 hover:bg-teal-700 text-white py-2 rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center space-x-1 disabled:opacity-60"
                   >
                     <FileCheck2 className="h-4 w-4" />
                     <span>Kirim Konfirmasi Manzil</span>
@@ -450,7 +610,7 @@ export default function OrangTuaDashboard() {
                   <div>
                     <h4 className="font-bold text-xs">Pemberitahuan Stagnasi</h4>
                     <p className="text-[10px] leading-relaxed mt-1">
-                      Ustadz mencatat adanya hambatan perkembangan hafalan (stuck) pada Zaid. Koordinator Tahfiz saat ini sedang memantau dan mengambil langkah intervensi ({activeSantri.stagnancyAction || 'Konseling'}). Mohon dampingi murojaah di rumah.
+                      Ustadz mencatat adanya hambatan perkembangan hafalan (stuck) pada {activeSantri.nama}. Koordinator Tahfiz saat ini sedang memantau dan mengambil langkah intervensi ({activeSantri.stagnancyAction || 'Konseling'}). Mohon dampingi murojaah di rumah.
                     </p>
                   </div>
                 </div>

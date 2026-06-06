@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { 
   BookOpen, 
@@ -15,7 +15,7 @@ import {
   AlertTriangle,
   FolderLock
 } from 'lucide-react';
-import { getSantriList, getHalaqahList, getSetoranList } from '@/lib/store';
+import { supabase } from '@/lib/supabase';
 
 export default function PortalPage() {
   const [stats, setStats] = useState({
@@ -26,33 +26,48 @@ export default function PortalPage() {
   });
 
   const [mounted, setMounted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const loadData = useCallback(async () => {
+    setIsLoading(true);
+    setSaveError(null);
+    try {
+      const todayStr = new Date().toISOString().split('T')[0];
+
+      const [santriRes, halaqahRes, setoranRes] = await Promise.all([
+        supabase.from('santri').select('id, status'),
+        supabase.from('halaqah').select('id'),
+        supabase.from('setoran').select('id').eq('tanggal', todayStr)
+      ]);
+
+      if (santriRes.error) throw new Error('Gagal memuat data santri: ' + santriRes.error.message);
+      if (halaqahRes.error) throw new Error('Gagal memuat data halaqah: ' + halaqahRes.error.message);
+      if (setoranRes.error) throw new Error('Gagal memuat data setoran: ' + setoranRes.error.message);
+
+      const totalSantri = santriRes.data ? santriRes.data.length : 0;
+      const stagnantSantri = santriRes.data ? santriRes.data.filter((s) => s.status === 'stagnant').length : 0;
+      const totalHalaqah = halaqahRes.data ? halaqahRes.data.length : 0;
+      const setoranHariIni = setoranRes.data ? setoranRes.data.length : 0;
+
+      setStats({
+        totalSantri,
+        totalHalaqah,
+        setoranHariIni,
+        stagnantSantri
+      });
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : 'Terjadi kesalahan saat mengambil data';
+      setSaveError(errMsg);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     setMounted(true);
-    // Load fresh statistics from localStorage
-    const updateStats = () => {
-      const santri = getSantriList();
-      const halaqahs = getHalaqahList();
-      const setorans = getSetoranList();
-      
-      const todayStr = new Date().toISOString().split('T')[0];
-      const todaySetorans = setorans.filter(s => s.date === todayStr).length;
-      const stagnant = santri.filter(s => s.status === 'stagnant').length;
-
-      setStats({
-        totalSantri: santri.length,
-        totalHalaqah: halaqahs.length,
-        setoranHariIni: todaySetorans,
-        stagnantSantri: stagnant
-      });
-    };
-
-    updateStats();
-    
-    // Listen for custom store updates
-    window.addEventListener('tahfiz_storage_update', updateStats);
-    return () => window.removeEventListener('tahfiz_storage_update', updateStats);
-  }, []);
+    loadData();
+  }, [loadData]);
 
   const roles = [
     {
@@ -124,6 +139,21 @@ export default function PortalPage() {
             Silakan pilih salah satu peran (role) di bawah ini untuk mengakses dashboard prototype. Semua data disimpan di localStorage browser Anda secara real-time dan tersinkronisasi antar-role.
           </p>
         </div>
+
+        {/* Global error banner */}
+        {saveError && (
+          <div className="mb-6 p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-xl flex items-center space-x-2 text-red-700 dark:text-red-400 text-xs font-semibold max-w-5xl mx-auto w-full">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-red-600 dark:text-red-400" />
+            <span>{saveError}</span>
+          </div>
+        )}
+
+        {/* Loading indicator */}
+        {isLoading && (
+          <div className="mb-6 p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-xl text-blue-700 dark:text-blue-400 text-xs font-semibold text-center max-w-5xl mx-auto w-full animate-pulse">
+            Memuat data statistik dari Supabase…
+          </div>
+        )}
 
         {/* Live Stats */}
         {mounted && (
