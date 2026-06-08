@@ -13,6 +13,7 @@ export interface Santri {
   parentPhone: string;
   currentJuz: number;
   totalHafalanJuz: number[]; // e.g. [30, 29]
+  parentUserId?: string | null;
 }
 
 export interface Halaqah {
@@ -20,6 +21,7 @@ export interface Halaqah {
   nama: string;
   pengampu: string;
   unit: 'Putra' | 'Putri';
+  pengampu_id?: string;
 }
 
 export interface Setoran {
@@ -35,6 +37,8 @@ export interface Setoran {
   status: 'lulus' | 'mengulang';
   parentVerified: boolean;
   notes?: string;
+  parentSignature?: string;
+  halamanAktual?: number;
 }
 
 export interface Pesan {
@@ -43,6 +47,7 @@ export interface Pesan {
   sender: 'pengampu' | 'orangtua';
   content: string;
   timestamp: string;
+  sudahDibaca?: boolean;
 }
 
 export interface ModulAjar {
