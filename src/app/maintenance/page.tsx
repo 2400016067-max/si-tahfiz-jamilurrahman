@@ -3,6 +3,8 @@ import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { Cog, ShieldAlert, ArrowRight } from 'lucide-react';
 
+export const dynamic = 'force-dynamic';
+
 export default function MaintenancePage() {
   const cookieStore = cookies();
   const userRole = cookieStore.get('sb-user-role')?.value;

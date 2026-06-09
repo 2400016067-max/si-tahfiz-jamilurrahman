@@ -35,7 +35,10 @@ import {
   Download,
   Check,
   FileSpreadsheet,
-  AlertCircle
+  AlertCircle,
+  Eye,
+  EyeOff,
+  Trash2
 } from 'lucide-react';
 
 interface BackupLog {
@@ -43,6 +46,15 @@ interface BackupLog {
   timestamp: string;
   size: string;
   status: 'sukses' | 'gagal';
+}
+
+interface Berita {
+  id: string;
+  judul: string;
+  isi: string;
+  is_aktif: boolean;
+  dibuat_oleh: string | null;
+  created_at: string;
 }
 
 interface DBUser {
@@ -70,9 +82,16 @@ export default function StaffTUDashboard() {
   const [namaLengkap, setNamaLengkap] = useState<string>('');
   
   // Navigation states
-  const [activeMenu, setActiveMenu] = useState<'dashboard' | 'santri' | 'halaqah' | 'akun' | 'relasi' | 'sistem'>('dashboard');
+  const [activeMenu, setActiveMenu] = useState<'dashboard' | 'santri' | 'halaqah' | 'akun' | 'relasi' | 'sistem' | 'berita'>('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMobileMoreOpen, setIsMobileMoreOpen] = useState(false);
+
+  // Kelola Berita states
+  const [beritaList, setBeritaList] = useState<Berita[]>([]);
+  const [showBeritaForm, setShowBeritaForm] = useState(false);
+  const [editBerita, setEditBerita] = useState<Berita | null>(null);
+  const [beritaJudul, setBeritaJudul] = useState('');
+  const [beritaIsi, setBeritaIsi] = useState('');
 
   // Edit Santri Modal states
   const [editingSantri, setEditingSantri] = useState<Santri | null>(null);
@@ -341,6 +360,16 @@ export default function StaffTUDashboard() {
         setMaintenanceUpdatedBy(configData.updated_by);
       }
 
+      // 7. Fetch all news from berita table
+      const { data: bData, error: bError } = await supabase
+        .from('berita')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!bError && bData) {
+        setBeritaList(bData);
+      }
+
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Terjadi kesalahan tidak diketahui.';
       console.error('[StaffTUDashboard] loadData error:', err);
@@ -395,6 +424,133 @@ export default function StaffTUDashboard() {
       toast.error(errMsg);
     } finally {
       setLoadingToggle(false);
+    }
+  };
+
+  const loadBerita = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('berita')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      if (data) setBeritaList(data);
+    } catch (err) {
+      console.error('loadBerita error:', err);
+      toast.error('Gagal memuat daftar berita.');
+    }
+  };
+
+  const tambahBerita = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!beritaJudul || !beritaIsi) {
+      toast.error('Judul dan isi berita wajib diisi.');
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Sesi tidak valid.');
+
+      // Fetch users table id
+      const { data: dbUser } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', session.user.email)
+        .single();
+
+      const dibuat_oleh = dbUser?.id || session.user.id;
+
+      const { error } = await supabase
+        .from('berita')
+        .insert({
+          judul: beritaJudul,
+          isi: beritaIsi,
+          is_aktif: true,
+          dibuat_oleh: dibuat_oleh,
+        });
+
+      if (error) throw error;
+
+      toast.success('Berita berhasil ditambahkan.');
+      setBeritaJudul('');
+      setBeritaIsi('');
+      setShowBeritaForm(false);
+      loadBerita();
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : 'Gagal menambahkan berita.';
+      toast.error(errMsg);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const editBeritaFn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editBerita || !beritaJudul || !beritaIsi) {
+      toast.error('Judul dan isi berita wajib diisi.');
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const { error } = await supabase
+        .from('berita')
+        .update({
+          judul: beritaJudul,
+          isi: beritaIsi,
+        })
+        .eq('id', editBerita.id);
+
+      if (error) throw error;
+
+      toast.success('Berita berhasil diperbarui.');
+      setBeritaJudul('');
+      setBeritaIsi('');
+      setEditBerita(null);
+      setShowBeritaForm(false);
+      loadBerita();
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : 'Gagal memperbarui berita.';
+      toast.error(errMsg);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const toggleAktif = async (id: string, current: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('berita')
+        .update({ is_aktif: !current })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast.success(`Berita berhasil ${!current ? 'diaktifkan' : 'dinonaktifkan'}.`);
+      loadBerita();
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : 'Gagal mengubah status berita.';
+      toast.error(errMsg);
+    }
+  };
+
+  const hapusBerita = async (id: string) => {
+    if (!window.confirm('Yakin ingin menghapus berita ini secara permanen?')) {
+      return;
+    }
+    try {
+      const { error } = await supabase
+        .from('berita')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast.success('Berita berhasil dihapus.');
+      loadBerita();
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : 'Gagal menghapus berita.';
+      toast.error(errMsg);
     }
   };
 
@@ -1016,10 +1172,11 @@ export default function StaffTUDashboard() {
     { id: 'dashboard', label: 'Dashboard Admin', icon: LayoutDashboard },
     { id: 'santri', label: 'Manajemen Santri', icon: UserSquare2 },
     { id: 'halaqah', label: 'Manajemen Halaqah', icon: BookMarked },
+    { id: 'berita', label: 'Kelola Berita', icon: Megaphone },
     { id: 'akun', label: 'Manajemen Akun', icon: UserPlus },
     { id: 'relasi', label: 'Relasi Ortu-Santri', icon: Link2 },
     { id: 'sistem', label: 'Sistem & Backup', icon: Settings2 },
-  ];
+  ] as const;
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col">
@@ -1041,7 +1198,7 @@ export default function StaffTUDashboard() {
               return (
                 <button
                   key={item.id}
-                  onClick={() => setActiveMenu(item.id as 'dashboard' | 'santri' | 'halaqah' | 'akun' | 'relasi' | 'sistem')}
+                  onClick={() => setActiveMenu(item.id)}
                   className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${isActive ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400' : 'text-slate-650 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-850/50'}`}
                   title={item.label}
                 >
@@ -2213,6 +2370,194 @@ export default function StaffTUDashboard() {
             </div>
           )}
 
+          {/* ==================================================================== */}
+          {/* PANEL 7: KELOLA BERITA                                               */}
+          {/* ==================================================================== */}
+          {activeMenu === 'berita' && (
+            <div className="space-y-6 animate-fadeIn">
+              
+              {/* Header Card */}
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div className="space-y-1">
+                  <h3 className="font-extrabold text-base text-slate-850 dark:text-slate-150 flex items-center space-x-2">
+                    <Megaphone className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+                    <span>Kelola Berita &amp; Pengumuman Sekolah</span>
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Kelola informasi dan pengumuman terbaru yang tampil di halaman portal utama sebelum login.
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setEditBerita(null);
+                    setBeritaJudul('');
+                    setBeritaIsi('');
+                    setShowBeritaForm(true);
+                  }}
+                  className="bg-violet-650 hover:bg-violet-750 text-white font-bold text-xs py-2.5 px-4 rounded-xl shadow transition-all flex items-center space-x-1.5 self-start md:self-auto"
+                >
+                  <PlusCircle className="h-4 w-4" />
+                  <span>Tambah Berita Baru</span>
+                </button>
+              </div>
+
+              {/* Berita Table Card */}
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden">
+                <div className="p-5 border-b border-slate-100 dark:border-slate-850 flex justify-between items-center bg-slate-50/50 dark:bg-slate-950/20">
+                  <h4 className="font-bold text-xs text-slate-400 uppercase tracking-wider">Daftar Berita &amp; Pengumuman</h4>
+                  <span className="text-[10px] bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold px-2 py-0.5 rounded-full">
+                    {beritaList.length} Total
+                  </span>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs text-left divide-y divide-slate-100 dark:divide-slate-850">
+                    <thead className="bg-slate-50 dark:bg-slate-950/30 text-[10px] text-slate-450 uppercase font-bold">
+                      <tr>
+                        <th className="px-6 py-3.5">Judul</th>
+                        <th className="px-6 py-3.5">Isi Singkat</th>
+                        <th className="px-6 py-3.5">Status</th>
+                        <th className="px-6 py-3.5">Tanggal</th>
+                        <th className="px-6 py-3.5 text-center">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-850">
+                      {beritaList.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="px-6 py-10 text-center text-slate-450 italic">
+                            Belum ada berita yang ditambahkan. Silakan klik tombol &quot;+ Tambah Berita Baru&quot; untuk memulai.
+                          </td>
+                        </tr>
+                      ) : (
+                        beritaList.map((berita) => (
+                          <tr key={berita.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-850/20 transition-colors">
+                            <td className="px-6 py-4 font-bold text-slate-800 dark:text-slate-200 max-w-[200px] truncate">
+                              {berita.judul}
+                            </td>
+                            <td className="px-6 py-4 text-slate-500 dark:text-slate-400">
+                              {berita.isi.length > 50 ? berita.isi.slice(0, 50) + '...' : berita.isi}
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold ${berita.is_aktif ? 'bg-emerald-500/10 text-emerald-600' : 'bg-slate-500/10 text-slate-450 dark:text-slate-400'}`}>
+                                {berita.is_aktif ? 'Aktif' : 'Nonaktif'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-slate-400">
+                              {new Date(berita.created_at).toLocaleDateString('id-ID', {
+                                day: 'numeric',
+                                month: 'short',
+                                year: 'numeric'
+                              })}
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex justify-center items-center space-x-2">
+                                <button
+                                  onClick={() => {
+                                    setEditBerita(berita);
+                                    setBeritaJudul(berita.judul);
+                                    setBeritaIsi(berita.isi);
+                                    setShowBeritaForm(true);
+                                  }}
+                                  className="p-1.5 bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 rounded-lg transition-colors"
+                                  title="Edit Berita"
+                                >
+                                  <Edit2 className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => toggleAktif(berita.id, berita.is_aktif)}
+                                  className={`p-1.5 rounded-lg transition-colors ${berita.is_aktif ? 'bg-orange-500/10 text-orange-655 dark:text-orange-400 hover:bg-orange-500/20' : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20'}`}
+                                  title={berita.is_aktif ? 'Matikan Berita' : 'Aktifkan Berita'}
+                                >
+                                  {berita.is_aktif ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                                </button>
+                                <button
+                                  onClick={() => hapusBerita(berita.id)}
+                                  className="p-1.5 bg-red-500/10 text-red-650 dark:text-red-400 hover:bg-red-500/20 rounded-lg transition-colors"
+                                  title="Hapus Berita"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Form Modal for Add/Edit Berita */}
+              {showBeritaForm && (
+                <div className="fixed inset-0 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-lg rounded-2xl shadow-2xl p-6 space-y-4 animate-in zoom-in-95 duration-200">
+                    <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-slate-850">
+                      <h3 className="font-extrabold text-sm text-slate-900 dark:text-slate-100">
+                        {editBerita ? 'Edit Berita / Pengumuman' : 'Tambah Berita Baru'}
+                      </h3>
+                      <button
+                        onClick={() => {
+                          setShowBeritaForm(false);
+                          setEditBerita(null);
+                        }}
+                        className="text-slate-400 hover:text-slate-500"
+                      >
+                        <X className="h-4.5 w-4.5" />
+                      </button>
+                    </div>
+
+                    <form onSubmit={editBerita ? editBeritaFn : tambahBerita} className="space-y-4 text-xs">
+                      <div>
+                        <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">Judul Berita</label>
+                        <input
+                          type="text"
+                          value={beritaJudul}
+                          onChange={(e) => setBeritaJudul(e.target.value)}
+                          required
+                          placeholder="Tulis judul berita atau pengumuman..."
+                          className="w-full text-xs p-2.5 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">Isi Pengumuman</label>
+                        <textarea
+                          value={beritaIsi}
+                          onChange={(e) => setBeritaIsi(e.target.value)}
+                          required
+                          rows={6}
+                          placeholder="Tulis detail isi pengumuman atau berita secara lengkap..."
+                          className="w-full text-xs p-2.5 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-500"
+                        />
+                      </div>
+
+                      <div className="flex justify-end space-x-3 pt-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowBeritaForm(false);
+                            setEditBerita(null);
+                          }}
+                          className="px-4 py-2 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-850 rounded-xl font-bold text-slate-500 dark:text-slate-455"
+                        >
+                          Batal
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={isLoading}
+                          className="px-4 py-2 bg-violet-600 hover:bg-violet-750 text-white font-bold rounded-xl shadow-md transition-colors disabled:opacity-60"
+                        >
+                          {editBerita ? 'Simpan Perubahan' : 'Tambah Berita'}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
+
+            </div>
+          )}
+
         </main>
       </div>
 
@@ -2254,7 +2599,7 @@ export default function StaffTUDashboard() {
 
         <button
           onClick={() => setIsMobileMoreOpen(!isMobileMoreOpen)}
-          className={`flex flex-col items-center space-y-0.5 text-center focus:outline-none ${isMobileMoreOpen || activeMenu === 'akun' || activeMenu === 'sistem' ? 'text-violet-600' : 'text-slate-400'}`}
+          className={`flex flex-col items-center space-y-0.5 text-center focus:outline-none ${isMobileMoreOpen || activeMenu === 'akun' || activeMenu === 'sistem' || activeMenu === 'berita' ? 'text-violet-600' : 'text-slate-400'}`}
         >
           <Menu className="h-5 w-5" />
           <span className="text-[8.5px] font-bold">Lainnya</span>
@@ -2273,21 +2618,29 @@ export default function StaffTUDashboard() {
               </button>
             </div>
             
-            <div className="grid grid-cols-2 gap-4 py-2">
+            <div className="grid grid-cols-3 gap-3 py-2">
               <button
                 onClick={() => { setActiveMenu('akun'); setIsMobileMoreOpen(false); }}
-                className={`flex flex-col items-center justify-center p-4 rounded-2xl border ${activeMenu === 'akun' ? 'bg-violet-500/10 border-violet-200 text-violet-650' : 'bg-slate-50 dark:bg-slate-950/30 border-slate-150 dark:border-slate-850 text-slate-650'}`}
+                className={`flex flex-col items-center justify-center p-3 rounded-2xl border ${activeMenu === 'akun' ? 'bg-violet-500/10 border-violet-200 text-violet-650' : 'bg-slate-50 dark:bg-slate-950/30 border-slate-150 dark:border-slate-850 text-slate-650'}`}
               >
-                <UserPlus className="h-6 w-6 mb-1.5" />
-                <span className="text-xs font-bold">Manajemen Akun</span>
+                <UserPlus className="h-5 w-5 mb-1" />
+                <span className="text-[10px] font-bold text-center">Manajemen Akun</span>
+              </button>
+
+              <button
+                onClick={() => { setActiveMenu('berita'); setIsMobileMoreOpen(false); }}
+                className={`flex flex-col items-center justify-center p-3 rounded-2xl border ${activeMenu === 'berita' ? 'bg-violet-500/10 border-violet-200 text-violet-650' : 'bg-slate-50 dark:bg-slate-950/30 border-slate-150 dark:border-slate-850 text-slate-650'}`}
+              >
+                <Megaphone className="h-5 w-5 mb-1" />
+                <span className="text-[10px] font-bold text-center">Kelola Berita</span>
               </button>
 
               <button
                 onClick={() => { setActiveMenu('sistem'); setIsMobileMoreOpen(false); }}
-                className={`flex flex-col items-center justify-center p-4 rounded-2xl border ${activeMenu === 'sistem' ? 'bg-violet-500/10 border-violet-200 text-violet-650' : 'bg-slate-50 dark:bg-slate-950/30 border-slate-150 dark:border-slate-850 text-slate-650'}`}
+                className={`flex flex-col items-center justify-center p-3 rounded-2xl border ${activeMenu === 'sistem' ? 'bg-violet-500/10 border-violet-200 text-violet-650' : 'bg-slate-50 dark:bg-slate-950/30 border-slate-150 dark:border-slate-850 text-slate-650'}`}
               >
-                <Settings2 className="h-6 w-6 mb-1.5" />
-                <span className="text-xs font-bold">Sistem &amp; Backup</span>
+                <Settings2 className="h-5 w-5 mb-1" />
+                <span className="text-[10px] font-bold text-center">Sistem &amp; Backup</span>
               </button>
             </div>
           </div>
