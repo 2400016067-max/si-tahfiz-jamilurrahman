@@ -464,6 +464,45 @@ export default function OrangTuaDashboard() {
 
     setSaveError(null);
 
+    // Upload signature to Supabase Storage if it exists
+    let signatureUrl = null;
+    if (signatureBase64) {
+      try {
+        const parts = signatureBase64.split(',');
+        const base64Data = parts[1];
+        const binaryString = atob(base64Data);
+        const len = binaryString.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        const blob = new Blob([bytes], { type: 'image/png' });
+
+        const fileName = `${activeSantri.id}_${Date.now()}.png`;
+        const { error: uploadError } = await supabase
+          .storage
+          .from('signatures')
+          .upload(fileName, blob, {
+            contentType: 'image/png',
+            upsert: false
+          });
+
+        if (uploadError) throw uploadError;
+
+        const { data: urlData } = supabase
+          .storage
+          .from('signatures')
+          .getPublicUrl(fileName);
+        
+        signatureUrl = urlData.publicUrl;
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : 'Terjadi kesalahan saat mengunggah tanda tangan';
+        setSaveError('Gagal memproses tanda tangan: ' + errMsg);
+        toast.error('Gagal memproses tanda tangan: ' + errMsg);
+        return;
+      }
+    }
+
     // Ambil parent_user_id untuk kolom parent_verified_by
     const parentUserId = parentUserIdMap[activeSantri.id] ?? null;
 
@@ -482,7 +521,7 @@ export default function OrangTuaDashboard() {
       parent_verified_at: new Date().toISOString(),
       halaman_aktual:     manzilAktualHalaman,
       catatan:            `Divalidasi oleh Orang Tua (${signatureName || activeSantri.parentName})`,
-      parent_signature:   signatureBase64,
+      parent_signature:   signatureUrl,
     });
 
     if (error) {
