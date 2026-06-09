@@ -4,14 +4,9 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
-import { UserOptions } from 'jspdf-autotable';
+import { applyPlugin } from 'jspdf-autotable';
 
-declare module 'jspdf' {
-  interface jsPDF {
-    autoTable: (options: UserOptions) => jsPDF;
-    lastAutoTable?: { finalY: number };
-  }
-}
+applyPlugin(jsPDF);
 
 import RoleHeader from '@/components/RoleHeader';
 import PengumumanPopup from '@/components/PengumumanPopup';
@@ -1122,7 +1117,8 @@ export default function PengampuDashboard() {
         doc.line(14, 28, 196, 28);
 
         // Table
-        doc.autoTable({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (doc as any).autoTable({
           head: [headers],
           body: rows,
           startY: 32,
@@ -1133,7 +1129,8 @@ export default function PengampuDashboard() {
         });
 
         // Footer
-        const finalY = doc.lastAutoTable?.finalY ?? 200;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const finalY = (doc as any).lastAutoTable?.finalY ?? 200;
         doc.setFontSize(8);
         doc.setTextColor(150);
         doc.text(`Tanggal Cetak: ${todayStr}`, 14, finalY + 10);

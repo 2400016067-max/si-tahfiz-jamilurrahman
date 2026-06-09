@@ -28,13 +28,14 @@ import {
   Send
 } from 'lucide-react';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line } from 'recharts';
-import jsPDF from 'jspdf';
+import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import { UserOptions } from 'jspdf-autotable';
 
 declare module 'jspdf' {
   interface jsPDF {
     autoTable: (options: UserOptions) => jsPDF;
+    lastAutoTable?: { finalY: number };
   }
 }
 
@@ -297,14 +298,22 @@ export default function KepalaSekolahDashboard() {
 
     setIsLoading(true);
     try {
-      const session = await supabase.auth.getSession();
-      const userId = session.data.session?.user.id;
-      if (!userId) throw new Error('Sesi tidak valid.');
+      const sessionRes = await supabase.auth.getSession();
+      const session = sessionRes.data.session;
+      if (!session) throw new Error('Sesi tidak valid.');
+
+      const { data: dbUser } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', session.user.email)
+        .single();
+
+      if (!dbUser) throw new Error('Pengguna tidak ditemukan di database.');
 
       const { error } = await supabase.from('pengumuman').insert({
         judul: annTitle,
         isi: annContent,
-        pengirim_id: userId,
+        pengirim_id: dbUser.id,
         pengirim_role: 'kepala_sekolah',
         target_role: targets,
       });

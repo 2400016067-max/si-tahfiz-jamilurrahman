@@ -15,8 +15,7 @@ interface Announcement {
 }
 
 export default function PengumumanPopup() {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [sessionUser, setSessionUser] = useState<any>(null);
+  const [publicUserId, setPublicUserId] = useState<string | null>(null);
   const [unreadList, setUnreadList] = useState<Announcement[]>([]);
   const currentIdx = 0;
   const [loading, setLoading] = useState(true);
@@ -30,7 +29,6 @@ export default function PengumumanPopup() {
           setLoading(false);
           return;
         }
-        setSessionUser(session.user);
 
         // Read user's role from sb-user-role cookie
         const getCookie = (name: string): string | null => {
@@ -47,17 +45,30 @@ export default function PengumumanPopup() {
           return;
         }
 
+        // Query public user UUID by email
+        const { data: dbUser } = await supabase
+          .from('users')
+          .select('id')
+          .eq('email', session.user.email)
+          .single();
+
+        if (!dbUser) {
+          setLoading(false);
+          return;
+        }
+        setPublicUserId(dbUser.id);
+
         // Fetch all announcements
         const { data: annData } = await supabase
           .from('pengumuman')
           .select('*')
           .order('created_at', { ascending: true });
 
-        // Fetch already read logs for this user
+        // Fetch already read logs for this user using public users UUID
         const { data: readData } = await supabase
           .from('pengumuman_dibaca')
           .select('pengumuman_id')
-          .eq('user_id', session.user.id);
+          .eq('user_id', dbUser.id);
 
         // Fetch all users to map sender names
         const { data: usersData } = await supabase
@@ -91,7 +102,7 @@ export default function PengumumanPopup() {
   }, []);
 
   const handleMarkAsRead = async () => {
-    if (unreadList.length === 0 || !sessionUser) return;
+    if (unreadList.length === 0 || !publicUserId) return;
     const currentAnn = unreadList[currentIdx];
 
     try {
@@ -99,7 +110,7 @@ export default function PengumumanPopup() {
         .from('pengumuman_dibaca')
         .insert({
           pengumuman_id: currentAnn.id,
-          user_id: sessionUser.id,
+          user_id: publicUserId,
         });
 
       if (error) throw error;

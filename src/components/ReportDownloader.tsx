@@ -5,13 +5,9 @@ import { supabase } from '@/lib/supabase';
 import { FileText, FileSpreadsheet, Download, Loader2, AlertCircle } from 'lucide-react';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
-import { UserOptions } from 'jspdf-autotable';
+import { applyPlugin } from 'jspdf-autotable';
 
-declare module 'jspdf' {
-  interface jsPDF {
-    autoTable: (options: UserOptions) => jsPDF;
-  }
-}
+applyPlugin(jsPDF);
 
 // ---------------------------------------------------------------------------
 // Types

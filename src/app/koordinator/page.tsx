@@ -569,14 +569,22 @@ export default function KoordinatorDashboard() {
 
     setIsLoading(true);
     try {
-      const session = await supabase.auth.getSession();
-      const userId = session.data.session?.user.id;
-      if (!userId) throw new Error('Sesi tidak valid.');
+      const sessionRes = await supabase.auth.getSession();
+      const session = sessionRes.data.session;
+      if (!session) throw new Error('Sesi tidak valid.');
+
+      const { data: dbUser } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', session.user.email)
+        .single();
+
+      if (!dbUser) throw new Error('Pengguna tidak ditemukan di database.');
 
       const { error } = await supabase.from('pengumuman').insert({
         judul: annTitle,
         isi: annContent,
-        pengirim_id: userId,
+        pengirim_id: dbUser.id,
         pengirim_role: 'koordinator',
         target_role: targets,
       });
@@ -768,9 +776,12 @@ export default function KoordinatorDashboard() {
       deadlineAkses: pekanDeadline || (pekanSelesai + 'T23:59:59')
     });
 
+    const namaPekan = `Pekan Muraja'ah ${pekanMulai} - ${pekanSelesai}`;
+
     const { error } = await supabase
       .from('jadwal_ujian')
       .insert({
+        nama: namaPekan,
         tanggal_mulai: pekanMulai,
         tanggal_selesai: pekanSelesai,
         status: 'aktif',

@@ -1,6 +1,7 @@
 export interface Santri {
   id: string;
   nama: string;
+  nis?: string;
   kelas: string;
   grade: 'Tahsin' | 'Takmil' | 'Tahfiz';
   targetBaris: number; // Tahsin: 2-3, Takmil: 7, Tahfiz: 10-15

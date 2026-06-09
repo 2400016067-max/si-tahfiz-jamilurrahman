@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '');
 
 // Maps DB role value → dashboard path
 const ROLE_TO_PATH: Record<string, string> = {
@@ -19,8 +24,38 @@ const DASHBOARD_ROUTES: { prefix: string; role: string }[] = [
   { prefix: '/stafftu', role: 'tata_usaha' },
 ];
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // -----------------------------------------------------------------------
+  // 0. MAINTENANCE MODE CHECK
+  // -----------------------------------------------------------------------
+  const isExcluded =
+    pathname === '/maintenance' ||
+    pathname === '/login' ||
+    pathname.startsWith('/_next') ||
+    pathname === '/favicon.ico' ||
+    pathname.startsWith('/api');
+
+  if (!isExcluded) {
+    try {
+      const { data } = await supabase
+        .from('system_config')
+        .select('value')
+        .eq('key', 'maintenance_mode')
+        .single();
+
+      if (data?.value === 'true') {
+        const userRole = request.cookies.get('sb-user-role')?.value;
+        if (userRole !== 'tata_usaha') {
+          return NextResponse.redirect(new URL('/maintenance', request.url));
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching maintenance mode in middleware:', error);
+    }
+  }
+
   const token = request.cookies.get('sb-access-token')?.value;
   const userRole = request.cookies.get('sb-user-role')?.value;
 
