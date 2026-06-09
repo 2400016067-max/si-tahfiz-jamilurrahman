@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import RoleHeader from '@/components/RoleHeader';
 import PengumumanPopup from '@/components/PengumumanPopup';
 import { supabase } from '@/lib/supabase';
+import { logAudit } from '@/lib/auditLog';
 import { Santri, UjianJuz, Setoran } from '@/lib/mockData';
 import { 
   Award, 
@@ -87,6 +88,7 @@ export default function KoordinatorDashboard() {
   const [isLoading, setIsLoading] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [namaLengkap, setNamaLengkap] = useState<string>('');
+  const [userId, setUserId] = useState<string>('');
 
   // Navigation states
   const [activeMenu, setActiveMenu] = useState<'dashboard' | 'grade' | 'stagnasi' | 'ukj' | 'pekan' | 'analitik'>('dashboard');
@@ -170,15 +172,16 @@ export default function KoordinatorDashboard() {
 
       const email = session.user.email;
 
-      // Query tabel users untuk dapat nama lengkap
+      // Query tabel users untuk dapat nama lengkap & ID
       const { data: dbUser, error: dbUserError } = await supabase
         .from('users')
-        .select('nama_lengkap')
+        .select('id, nama_lengkap')
         .eq('email', email)
         .single();
 
       if (dbUserError || !dbUser) throw new Error('Detail pengguna tidak ditemukan di database.');
       setNamaLengkap(dbUser.nama_lengkap ?? '');
+      setUserId(dbUser.id);
 
       // 1. Fetch halaqah — untuk mapping id → nama (menggantikan hardcode 'h-1')
       const { data: halaqahData, error: halaqahError } = await supabase
@@ -418,6 +421,20 @@ export default function KoordinatorDashboard() {
     }
 
     toast.success(`Berhasil memperbarui Grade ${editingSantri.nama} ke ${newGrade} dengan target harian ${targetBaris} baris.`);
+    
+    logAudit({
+      userId: userId,
+      namaUser: namaLengkap,
+      aksi: 'UBAH_GRADE',
+      targetTabel: 'santri',
+      targetId: editingSantri.id,
+      detail: { 
+        nama: editingSantri.nama,
+        grade_lama: editingSantri.grade, 
+        grade_baru: newGrade 
+      }
+    });
+
     setEditingSantri(null);
     await loadData();
   };
@@ -704,6 +721,18 @@ export default function KoordinatorDashboard() {
       particleCount: 120,
       spread: 70,
       origin: { y: 0.6 }
+    });
+
+    const student = santriList.find(s => s.id === ujian.santriId);
+    const namaSantri = student ? student.nama : 'Unknown';
+
+    logAudit({
+      userId: userId,
+      namaUser: namaLengkap,
+      aksi: 'APPROVE_UJIAN',
+      targetTabel: 'ujian_juz',
+      targetId: ujianId,
+      detail: { santri: namaSantri, juz: ujian.juz }
     });
 
     toast.success('Ujian Kenaikan Juz berhasil disetujui!');

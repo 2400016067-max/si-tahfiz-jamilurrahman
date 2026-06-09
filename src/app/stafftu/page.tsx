@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import RoleHeader from '@/components/RoleHeader';
 import PengumumanPopup from '@/components/PengumumanPopup';
 import { supabase } from '@/lib/supabase';
+import { logAudit } from '@/lib/auditLog';
 import { Santri, Halaqah, Setoran } from '@/lib/mockData';
 import { 
   Database, 
@@ -66,6 +67,68 @@ interface DBUser {
   is_active: boolean;
 }
 
+interface AuditLogEntry {
+  id: string;
+  user_id: string;
+  nama_user: string;
+  aksi: string;
+  target_tabel: string | null;
+  target_id: string | null;
+  detail: Record<string, string | number | boolean | null | undefined> | null;
+  created_at: string;
+}
+
+const readableActions: Record<string, string> = {
+  MAINTENANCE_ON: 'Aktifkan Maintenance',
+  MAINTENANCE_OFF: 'Nonaktifkan Maintenance',
+  UBAH_GRADE: 'Ubah Grade Santri',
+  HAPUS_SANTRI: 'Hapus Data Santri',
+  TAMBAH_BERITA: 'Tambah Berita',
+  HAPUS_BERITA: 'Hapus Berita',
+  APPROVE_UJIAN: 'Setujui Ujian Juz',
+};
+
+const getReadableAction = (aksi: string) => {
+  return readableActions[aksi] || aksi;
+};
+
+const formatDetail = (item: AuditLogEntry) => {
+  if (!item.detail) return '-';
+  
+  switch (item.aksi) {
+    case 'MAINTENANCE_ON': {
+      const ts = item.detail['timestamp'];
+      return `Waktu: ${ts ? new Date(String(ts)).toLocaleTimeString('id-ID') : '-'}`;
+    }
+    case 'MAINTENANCE_OFF':
+      return '-';
+    case 'UBAH_GRADE': {
+      const nama = item.detail['nama'] || '-';
+      const lama = item.detail['grade_lama'] || '-';
+      const baru = item.detail['grade_baru'] || '-';
+      return `Santri: ${nama} (${lama} → ${baru})`;
+    }
+    case 'HAPUS_SANTRI': {
+      const nama = item.detail['nama'] || '-';
+      return `Santri: ${nama}`;
+    }
+    case 'TAMBAH_BERITA':
+    case 'HAPUS_BERITA': {
+      const judul = item.detail['judul'] || '-';
+      return `Judul: ${judul}`;
+    }
+    case 'APPROVE_UJIAN': {
+      const santri = item.detail['santri'] || '-';
+      const juz = item.detail['juz'] || '-';
+      return `Santri: ${santri} (Juz ${juz})`;
+    }
+    default:
+      return Object.entries(item.detail)
+        .map(([key, val]) => `${key}: ${val}`)
+        .join(', ');
+  }
+};
+
 export default function StaffTUDashboard() {
   const [mounted, setMounted] = useState(false);
   const [santriList, setSantriList] = useState<Santri[]>([]);
@@ -82,7 +145,7 @@ export default function StaffTUDashboard() {
   const [namaLengkap, setNamaLengkap] = useState<string>('');
   
   // Navigation states
-  const [activeMenu, setActiveMenu] = useState<'dashboard' | 'santri' | 'halaqah' | 'akun' | 'relasi' | 'sistem' | 'berita'>('dashboard');
+  const [activeMenu, setActiveMenu] = useState<'dashboard' | 'santri' | 'halaqah' | 'akun' | 'relasi' | 'sistem' | 'berita' | 'audit'>('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMobileMoreOpen, setIsMobileMoreOpen] = useState(false);
 
@@ -92,6 +155,14 @@ export default function StaffTUDashboard() {
   const [editBerita, setEditBerita] = useState<Berita | null>(null);
   const [beritaJudul, setBeritaJudul] = useState('');
   const [beritaIsi, setBeritaIsi] = useState('');
+
+  // Audit Log states
+  const [userId, setUserId] = useState<string>('');
+  const [auditList, setAuditList] = useState<AuditLogEntry[]>([]);
+  const [auditFilterAksi, setAuditFilterAksi] = useState<string>('all');
+  const [auditFilterTanggal, setAuditFilterTanggal] = useState<string>('');
+  const [auditPage, setAuditPage] = useState<number>(1);
+  const [auditTotalCount, setAuditTotalCount] = useState<number>(0);
 
   // Edit Santri Modal states
   const [editingSantri, setEditingSantri] = useState<Santri | null>(null);
@@ -204,6 +275,7 @@ export default function StaffTUDashboard() {
 
       if (dbUserError || !dbUser) throw new Error('Detail pengguna tidak ditemukan di database.');
       setNamaLengkap(dbUser.nama_lengkap ?? '');
+      setUserId(dbUser.id);
 
       // 1. Fetch all users for account management list
       const { data: allUsersData, error: allUsersError } = await supabase
@@ -384,6 +456,58 @@ export default function StaffTUDashboard() {
     loadData();
   }, [loadData]);
 
+  useEffect(() => {
+    if (activeMenu === 'audit') {
+      const fetchAuditLogs = async () => {
+        try {
+          setIsLoading(true);
+          let query = supabase
+            .from('audit_log')
+            .select('*', { count: 'exact' });
+
+          if (auditFilterAksi && auditFilterAksi !== 'all') {
+            query = query.eq('aksi', auditFilterAksi);
+          }
+          
+          if (auditFilterTanggal) {
+            const startOfDay = `${auditFilterTanggal}T00:00:00.000Z`;
+            const endOfDay = `${auditFilterTanggal}T23:59:59.999Z`;
+            query = query.gte('created_at', startOfDay).lte('created_at', endOfDay);
+          }
+
+          const fromIndex = (auditPage - 1) * 20;
+          const toIndex = fromIndex + 19;
+          
+          query = query
+            .order('created_at', { ascending: false })
+            .range(fromIndex, toIndex);
+
+          const { data, count, error } = await query;
+          if (error) throw error;
+          setAuditList(data as AuditLogEntry[] ?? []);
+          setAuditTotalCount(count ?? 0);
+        } catch (err) {
+          console.error('Error loading audit log:', err);
+          toast.error('Gagal memuat log audit.');
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      fetchAuditLogs();
+    }
+  }, [activeMenu, auditPage, auditFilterAksi, auditFilterTanggal]);
+
+  const handleFilterAksiChange = (val: string) => {
+    setAuditFilterAksi(val);
+    setAuditPage(1);
+  };
+
+  const handleFilterTanggalChange = (val: string) => {
+    setAuditFilterTanggal(val);
+    setAuditPage(1);
+  };
+
   const toggleMaintenance = async () => {
     setLoadingToggle(true);
     const newValue = !maintenanceMode;
@@ -393,7 +517,7 @@ export default function StaffTUDashboard() {
 
       const { data: dbUser, error: dbUserError } = await supabase
         .from('users')
-        .select('id')
+        .select('id, nama_lengkap')
         .eq('email', session.user.email)
         .single();
 
@@ -409,6 +533,21 @@ export default function StaffTUDashboard() {
         .eq('key', 'maintenance_mode');
 
       if (error) throw error;
+
+      if (newValue) {
+        logAudit({
+          userId: dbUser.id,
+          namaUser: dbUser.nama_lengkap || namaLengkap,
+          aksi: 'MAINTENANCE_ON',
+          detail: { timestamp: new Date().toISOString() }
+        });
+      } else {
+        logAudit({
+          userId: dbUser.id,
+          namaUser: dbUser.nama_lengkap || namaLengkap,
+          aksi: 'MAINTENANCE_OFF'
+        });
+      }
 
       setMaintenanceMode(newValue);
       setMaintenanceUpdatedAt(new Date().toISOString());
@@ -471,6 +610,14 @@ export default function StaffTUDashboard() {
         });
 
       if (error) throw error;
+
+      logAudit({
+        userId: dibuat_oleh,
+        namaUser: namaLengkap,
+        aksi: 'TAMBAH_BERITA',
+        targetTabel: 'berita',
+        detail: { judul: beritaJudul }
+      });
 
       toast.success('Berita berhasil ditambahkan.');
       setBeritaJudul('');
@@ -539,12 +686,24 @@ export default function StaffTUDashboard() {
       return;
     }
     try {
+      const target = beritaList.find(b => b.id === id);
+      const judulBerita = target ? target.judul : '';
+
       const { error } = await supabase
         .from('berita')
         .delete()
         .eq('id', id);
 
       if (error) throw error;
+
+      logAudit({
+        userId: userId,
+        namaUser: namaLengkap,
+        aksi: 'HAPUS_BERITA',
+        targetTabel: 'berita',
+        targetId: id,
+        detail: { judul: judulBerita }
+      });
 
       toast.success('Berita berhasil dihapus.');
       loadBerita();
@@ -1176,6 +1335,7 @@ export default function StaffTUDashboard() {
     { id: 'akun', label: 'Manajemen Akun', icon: UserPlus },
     { id: 'relasi', label: 'Relasi Ortu-Santri', icon: Link2 },
     { id: 'sistem', label: 'Sistem & Backup', icon: Settings2 },
+    { id: 'audit', label: 'Riwayat Aktivitas', icon: Database },
   ] as const;
 
   return (
@@ -2558,6 +2718,175 @@ export default function StaffTUDashboard() {
             </div>
           )}
 
+          {/* ==================================================================== */}
+          {/* PANEL 8: RIWAYAT AKTIVITAS (AUDIT LOG)                              */}
+          {/* ==================================================================== */}
+          {activeMenu === 'audit' && (
+            <div className="space-y-6 animate-fadeIn">
+              
+              {/* Header Card */}
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-extrabold text-slate-850 dark:text-slate-150">
+                    📜 Riwayat Aktivitas Sistem (Audit Log)
+                  </h2>
+                  <p className="text-xs text-slate-450 dark:text-slate-400 mt-1">
+                    Memantau riwayat aksi penting yang dilakukan oleh Staff TU dan Koordinator.
+                  </p>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 bg-violet-500/10 text-violet-650 rounded-full">
+                    {auditTotalCount} Aktivitas Tercatat
+                  </span>
+                </div>
+              </div>
+
+              {/* Filters Block */}
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm space-y-4">
+                <div className="flex flex-col md:flex-row gap-4">
+                  
+                  {/* Filter Aksi */}
+                  <div className="flex-1">
+                    <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1.5">
+                      Filter Aksi
+                    </label>
+                    <select
+                      value={auditFilterAksi}
+                      onChange={e => handleFilterAksiChange(e.target.value)}
+                      className="w-full text-xs p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-1 focus:ring-violet-500 text-slate-700 dark:text-slate-300"
+                    >
+                      <option value="all">Semua Aksi</option>
+                      <option value="MAINTENANCE_ON">Aktifkan Maintenance</option>
+                      <option value="MAINTENANCE_OFF">Nonaktifkan Maintenance</option>
+                      <option value="UBAH_GRADE">Ubah Grade Santri</option>
+                      <option value="HAPUS_SANTRI">Hapus Data Santri</option>
+                      <option value="TAMBAH_BERITA">Tambah Berita</option>
+                      <option value="HAPUS_BERITA">Hapus Berita</option>
+                      <option value="APPROVE_UJIAN">Setujui Ujian Juz</option>
+                    </select>
+                  </div>
+
+                  {/* Filter Tanggal */}
+                  <div className="w-full md:w-64">
+                    <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1.5">
+                      Tanggal
+                    </label>
+                    <input
+                      type="date"
+                      value={auditFilterTanggal}
+                      onChange={e => handleFilterTanggalChange(e.target.value)}
+                      className="w-full text-xs p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-1 focus:ring-violet-500 text-slate-700 dark:text-slate-300"
+                    />
+                  </div>
+
+                  {/* Reset Filters */}
+                  <div className="flex items-end">
+                    <button
+                      onClick={() => {
+                        setAuditFilterAksi('all');
+                        setAuditFilterTanggal('');
+                        setAuditPage(1);
+                      }}
+                      className="w-full md:w-auto px-4 py-2.5 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-850 rounded-xl text-xs font-bold text-slate-500 dark:text-slate-400 transition-colors"
+                    >
+                      Reset Filter
+                    </button>
+                  </div>
+
+                </div>
+              </div>
+
+              {/* Data Table */}
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-slate-100 dark:border-slate-850 bg-slate-50/50 dark:bg-slate-900/50 text-[10px] font-bold uppercase text-slate-400 tracking-wider">
+                        <th className="px-6 py-3.5 w-48">Waktu</th>
+                        <th className="px-6 py-3.5 w-48">Pengguna</th>
+                        <th className="px-6 py-3.5 w-60">Aksi</th>
+                        <th className="px-6 py-3.5">Detail</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-850 text-xs">
+                      {isLoading ? (
+                        <tr>
+                          <td colSpan={4} className="px-6 py-12 text-center text-slate-400">
+                            <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-violet-650" />
+                            Memuat data aktivitas...
+                          </td>
+                        </tr>
+                      ) : auditList.length === 0 ? (
+                        <tr>
+                          <td colSpan={4} className="px-6 py-12 text-center text-slate-455 italic">
+                            Tidak ada data aktivitas yang sesuai dengan filter.
+                          </td>
+                        </tr>
+                      ) : (
+                        auditList.map((item) => (
+                          <tr key={item.id} className="hover:bg-slate-50/40 dark:hover:bg-slate-850/10 transition-colors">
+                            <td className="px-6 py-4 text-slate-450 dark:text-slate-400 font-medium">
+                              {new Date(item.created_at).toLocaleString('id-ID', {
+                                dateStyle: 'medium',
+                                timeStyle: 'short',
+                              })}
+                            </td>
+                            <td className="px-6 py-4 font-bold text-slate-700 dark:text-slate-300">
+                              {item.nama_user}
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                                item.aksi.startsWith('MAINTENANCE') ? 'bg-red-500/10 text-red-600' :
+                                item.aksi.includes('BERITA') ? 'bg-blue-500/10 text-blue-600' :
+                                item.aksi === 'UBAH_GRADE' ? 'bg-amber-500/10 text-amber-600' :
+                                'bg-emerald-500/10 text-emerald-600'
+                              }`}>
+                                {getReadableAction(item.aksi)}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-slate-600 dark:text-slate-350 font-medium">
+                              {formatDetail(item)}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Pagination Footer */}
+                {auditTotalCount > 20 && (
+                  <div className="p-4 border-t border-slate-100 dark:border-slate-850 flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-slate-450 uppercase">
+                      Menampilkan {Math.min((auditPage - 1) * 20 + 1, auditTotalCount)} - {Math.min(auditPage * 20, auditTotalCount)} dari {auditTotalCount} baris
+                    </span>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => setAuditPage(p => Math.max(1, p - 1))}
+                        disabled={auditPage === 1 || isLoading}
+                        className="p-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-850 transition-colors disabled:opacity-50"
+                      >
+                        <ChevronLeft className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+                      </button>
+                      <span className="text-xs font-extrabold text-slate-700 dark:text-slate-300 px-2">
+                        {auditPage}
+                      </span>
+                      <button
+                        onClick={() => setAuditPage(p => Math.min(Math.ceil(auditTotalCount / 20), p + 1))}
+                        disabled={auditPage * 20 >= auditTotalCount || isLoading}
+                        className="p-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-850 transition-colors disabled:opacity-50"
+                      >
+                        <ChevronRight className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+              </div>
+
+            </div>
+          )}
+
         </main>
       </div>
 
@@ -2599,7 +2928,7 @@ export default function StaffTUDashboard() {
 
         <button
           onClick={() => setIsMobileMoreOpen(!isMobileMoreOpen)}
-          className={`flex flex-col items-center space-y-0.5 text-center focus:outline-none ${isMobileMoreOpen || activeMenu === 'akun' || activeMenu === 'sistem' || activeMenu === 'berita' ? 'text-violet-600' : 'text-slate-400'}`}
+          className={`flex flex-col items-center space-y-0.5 text-center focus:outline-none ${isMobileMoreOpen || activeMenu === 'akun' || activeMenu === 'sistem' || activeMenu === 'berita' || activeMenu === 'audit' ? 'text-violet-600' : 'text-slate-400'}`}
         >
           <Menu className="h-5 w-5" />
           <span className="text-[8.5px] font-bold">Lainnya</span>
@@ -2618,7 +2947,7 @@ export default function StaffTUDashboard() {
               </button>
             </div>
             
-            <div className="grid grid-cols-3 gap-3 py-2">
+            <div className="grid grid-cols-2 gap-3 py-2">
               <button
                 onClick={() => { setActiveMenu('akun'); setIsMobileMoreOpen(false); }}
                 className={`flex flex-col items-center justify-center p-3 rounded-2xl border ${activeMenu === 'akun' ? 'bg-violet-500/10 border-violet-200 text-violet-650' : 'bg-slate-50 dark:bg-slate-950/30 border-slate-150 dark:border-slate-850 text-slate-650'}`}
@@ -2641,6 +2970,14 @@ export default function StaffTUDashboard() {
               >
                 <Settings2 className="h-5 w-5 mb-1" />
                 <span className="text-[10px] font-bold text-center">Sistem &amp; Backup</span>
+              </button>
+
+              <button
+                onClick={() => { setActiveMenu('audit'); setIsMobileMoreOpen(false); }}
+                className={`flex flex-col items-center justify-center p-3 rounded-2xl border ${activeMenu === 'audit' ? 'bg-violet-500/10 border-violet-200 text-violet-650' : 'bg-slate-50 dark:bg-slate-950/30 border-slate-150 dark:border-slate-850 text-slate-650'}`}
+              >
+                <Database className="h-5 w-5 mb-1" />
+                <span className="text-[10px] font-bold text-center">Riwayat Aktivitas</span>
               </button>
             </div>
           </div>

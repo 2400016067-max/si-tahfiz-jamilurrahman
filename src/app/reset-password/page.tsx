@@ -40,14 +40,38 @@ export default function ResetPasswordPage() {
     };
   }, []);
 
+  function validatePassword(pwd: string): string | null {
+    if (pwd.length < 8) 
+      return 'Password minimal 8 karakter';
+    if (!/[A-Za-z]/.test(pwd)) 
+      return 'Password harus mengandung huruf';
+    if (!/[0-9]/.test(pwd)) 
+      return 'Password harus mengandung angka';
+    return null;
+  }
+
+  const getPasswordStrength = (pwd: string) => {
+    if (!pwd) return { level: 0, color: 'bg-slate-200 dark:bg-slate-800', width: '0%', text: '' };
+    if (pwd.length < 8) {
+      return { level: 1, color: 'bg-red-500', width: '33.33%', text: 'Sangat Lemah' };
+    }
+    const hasLetter = /[A-Za-z]/.test(pwd);
+    const hasNumber = /[0-9]/.test(pwd);
+    if (!hasLetter || !hasNumber) {
+      return { level: 2, color: 'bg-yellow-500', width: '66.66%', text: 'Sedang' };
+    }
+    return { level: 3, color: 'bg-emerald-500', width: '100%', text: 'Kuat' };
+  };
+
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password !== confirmPassword) {
       setError('Password tidak cocok');
       return;
     }
-    if (password.length < 8) {
-      setError('Password minimal 8 karakter');
+    const validationError = validatePassword(password);
+    if (validationError) {
+      setError(validationError);
       return;
     }
 
@@ -162,6 +186,30 @@ export default function ResetPasswordPage() {
                             className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 dark:focus:ring-emerald-400/20 transition-all text-slate-800 dark:text-slate-100"
                           />
                         </div>
+
+                        {/* Password Strength Indicator */}
+                        {password && (
+                          <div className="mt-2 space-y-1">
+                            <div className="flex justify-between items-center text-[9px] font-bold uppercase tracking-wider">
+                              <span className="text-slate-400 dark:text-slate-500">Kekuatan:</span>
+                              <span className={
+                                getPasswordStrength(password).level === 1 ? 'text-red-500' :
+                                getPasswordStrength(password).level === 2 ? 'text-yellow-500 dark:text-yellow-400' : 'text-emerald-500'
+                              }>
+                                {getPasswordStrength(password).text}
+                              </span>
+                            </div>
+                            <div className="h-1 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                              <div 
+                                className={`h-full transition-all duration-300 ease-out ${getPasswordStrength(password).color}`}
+                                style={{ width: getPasswordStrength(password).width }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">
+                          Min. 8 karakter, kombinasi huruf dan angka
+                        </p>
                       </div>
 
                       <div>
