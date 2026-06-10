@@ -6,7 +6,7 @@ import RoleHeader from '@/components/RoleHeader';
 import PengumumanPopup from '@/components/PengumumanPopup';
 import { supabase } from '@/lib/supabase';
 import { logAudit } from '@/lib/auditLog';
-import { Santri, Halaqah, Setoran } from '@/lib/mockData';
+import { Santri, Halaqah, Setoran, BackupLog, Berita, DBUser, AuditLogEntry } from '@/types/tahfiz';
 import { 
   Database, 
   Search, 
@@ -42,41 +42,6 @@ import {
   Trash2
 } from 'lucide-react';
 
-interface BackupLog {
-  id: string;
-  timestamp: string;
-  size: string;
-  status: 'sukses' | 'gagal';
-}
-
-interface Berita {
-  id: string;
-  judul: string;
-  isi: string;
-  is_aktif: boolean;
-  dibuat_oleh: string | null;
-  created_at: string;
-}
-
-interface DBUser {
-  id: string;
-  nama_lengkap: string;
-  email: string;
-  no_hp: string | null;
-  role: string;
-  is_active: boolean;
-}
-
-interface AuditLogEntry {
-  id: string;
-  user_id: string;
-  nama_user: string;
-  aksi: string;
-  target_tabel: string | null;
-  target_id: string | null;
-  detail: Record<string, string | number | boolean | null | undefined> | null;
-  created_at: string;
-}
 
 const readableActions: Record<string, string> = {
   MAINTENANCE_ON: 'Aktifkan Maintenance',

@@ -9,22 +9,7 @@ import { applyPlugin } from 'jspdf-autotable';
 
 applyPlugin(jsPDF);
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-interface Santri {
-  id: string;
-  nama: string;
-  halaqahId: string;
-}
-
-interface ReportDownloaderProps {
-  santriList: Santri[];
-  halaqahMap: Record<string, string>;
-}
-
-type ReportType = 'setoran' | 'ukj' | 'grade';
-type PeriodType = 'bulanan' | 'tahunan' | 'custom';
+import { ReportDownloaderProps, ReportType, PeriodType } from '@/types/tahfiz';
 
 // ---------------------------------------------------------------------------
 // Helpers

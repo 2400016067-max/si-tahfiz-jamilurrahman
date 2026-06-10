@@ -13,29 +13,7 @@ import {
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 
-interface RoleHeaderProps {
-  roleName: string;
-  activeRole: 'pengampu' | 'orangtua' | 'koordinator' | 'kepalasekolah' | 'stafftu';
-}
-
-interface UserProfile {
-  id: string;
-  nama_lengkap: string | null;
-  no_hp: string | null;
-  avatar_url: string | null;
-}
-
-interface RoleStats {
-  halaqahNama?: string;
-  jumlahSantri?: number;
-  anakList?: { nama: string; grade: string }[];
-  totalSantri?: number;
-  totalHalaqah?: number;
-  totalStagnant?: number;
-  totalUkjLulus?: number;
-  totalAkun?: number;
-  tanggalBackup?: string;
-}
+import { RoleHeaderProps, UserProfile, RoleStats } from '@/types/tahfiz';
 
 export default function RoleHeader({ roleName, activeRole }: RoleHeaderProps) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);

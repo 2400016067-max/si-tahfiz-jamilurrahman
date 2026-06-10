@@ -4,15 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Megaphone, Check } from 'lucide-react';
 
-interface Announcement {
-  id: string;
-  judul: string;
-  isi: string;
-  pengirim_id: string;
-  pengirim_role: string;
-  target_role: string[];
-  created_at: string;
-}
+import { Announcement } from '@/types/tahfiz';
 
 export default function PengumumanPopup() {
   const [publicUserId, setPublicUserId] = useState<string | null>(null);
