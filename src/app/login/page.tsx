@@ -288,7 +288,7 @@ export default function LoginPage() {
             ) : (
               <div className="space-y-4">
                 {beritaList.map((berita) => (
-                  <div key={berita.id} className="p-5 bg-white/10 backdrop-blur-md border border-white/5 rounded-2xl shadow-sm hover:bg-white/15 transition-all duration-300">
+                  <div key={berita.id} className="p-5 bg-white/10 backdrop-blur-md border border-white/5 rounded-2xl shadow-sm hover:bg-white/15 transition-all duration-300 h-auto">
                     <h4 className="font-extrabold text-sm text-white mb-1.5">{berita.judul}</h4>
                     <p className="text-xs text-white/80 leading-relaxed line-clamp-4 mb-3">{berita.isi}</p>
                     <div className="flex items-center space-x-1.5 text-[9px] text-white/45 font-semibold">

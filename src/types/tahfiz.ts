@@ -234,3 +234,50 @@ export interface PekanSchedule {
   deadlineAkses: string;
   status?: string;
 }
+
+export interface HariLibur {
+  id: string;
+  nama: string;
+  tanggal_mulai: string;
+  tanggal_selesai: string;
+  jenis: 'libur_nasional' | 'libur_semester' | 'libur_tahfiz_mendadak';
+  keterangan?: string;
+  dibuat_oleh: string | null;
+  created_at: string;
+}
+
+export interface Absensi {
+  id: string;
+  santri_id: string;
+  tanggal: string;
+  status: 'hadir' | 'sakit' | 'izin' | 'alpha';
+  keterangan: string | null;
+  dicatat_oleh: string | null;
+  created_at: string;
+}
+
+export interface NilaiAkhlaq {
+  id: string;
+  santri_id: string;
+  semester: string;
+  nilai: number;
+  catatan: string | null;
+  dicatat_oleh: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+
+export interface NilaiAkhlaq {
+  id: string;
+  santri_id: string;
+  semester: string;
+  nilai: number;
+  catatan: string | null;
+  dicatat_oleh: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+
+

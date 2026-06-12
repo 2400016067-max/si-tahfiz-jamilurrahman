@@ -4,8 +4,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { logAudit } from '@/lib/auditLog';
-import { Santri, PekanSchedule } from '@/types/tahfiz';
-import { Calendar, Plus } from 'lucide-react';
+import { Santri, PekanSchedule, HariLibur } from '@/types/tahfiz';
+import { Calendar, Plus, Pencil, Trash } from 'lucide-react';
 
 interface PekanMurajaahPanelProps {
   santriList: Santri[];
@@ -34,6 +34,16 @@ export default function PekanMurajaahPanel({
   const [selectedHalaqahRotation, setSelectedHalaqahRotation] = useState<string>('');
   const [teacherRotationDate, setTeacherRotationDate] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // ── Hari Libur State ──────────────────────────────────────────────────────
+  const [hariLiburList, setHariLiburList] = useState<HariLibur[]>([]);
+  const [showHariLiburForm, setShowHariLiburForm] = useState<boolean>(false);
+  const [editHariLibur, setEditHariLibur] = useState<HariLibur | null>(null);
+  const [hlNama, setHlNama] = useState<string>('');
+  const [hlTanggalMulai, setHlTanggalMulai] = useState<string>('');
+  const [hlTanggalSelesai, setHlTanggalSelesai] = useState<string>('');
+  const [hlJenis, setHlJenis] = useState<'libur_nasional' | 'libur_semester' | 'libur_tahfiz_mendadak'>('libur_nasional');
+  const [hlKeterangan, setHlKeterangan] = useState<string>('');
 
   // ── Fetch jadwal_ujian ────────────────────────────────────────────────────
   const loadSchedules = useCallback(async () => {
@@ -75,9 +85,23 @@ export default function PekanMurajaahPanel({
     setIsLoading(false);
   }, []);
 
+  // ── Fetch hari_libur ──────────────────────────────────────────────────────
+  const loadHariLibur = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('hari_libur')
+      .select('*')
+      .order('tanggal_mulai', { ascending: false });
+    if (error) {
+      console.warn('Gagal memuat hari_libur:', error.message);
+    } else if (data) {
+      setHariLiburList(data);
+    }
+  }, []);
+
   useEffect(() => {
     loadSchedules();
-  }, [loadSchedules]);
+    loadHariLibur();
+  }, [loadSchedules, loadHariLibur]);
 
   // ── Handler: Tambah Jadwal ────────────────────────────────────────────────
   const handleAddPekanSchedule = async (e: React.FormEvent) => {
@@ -139,6 +163,118 @@ export default function PekanMurajaahPanel({
     toast.success("Pekan Muraja'ah Massal berhasil dihentikan.");
     await loadSchedules();
     onDataChanged();
+  };
+
+  // ── Handlers: Kelola Hari Libur ──────────────────────────────────────────
+  const resetHariLiburForm = () => {
+    setHlNama('');
+    setHlTanggalMulai('');
+    setHlTanggalSelesai('');
+    setHlJenis('libur_nasional');
+    setHlKeterangan('');
+    setEditHariLibur(null);
+    setShowHariLiburForm(false);
+  };
+
+  const tambahHariLibur = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (hlTanggalSelesai < hlTanggalMulai) {
+      toast.error('Tanggal selesai harus setelah atau sama dengan tanggal mulai.');
+      return;
+    }
+
+    setIsLoading(true);
+
+    if (editHariLibur) {
+      // Mode Edit
+      const { error } = await supabase
+        .from('hari_libur')
+        .update({
+          nama: hlNama,
+          tanggal_mulai: hlTanggalMulai,
+          tanggal_selesai: hlTanggalSelesai,
+          jenis: hlJenis,
+          keterangan: hlKeterangan || null,
+        })
+        .eq('id', editHariLibur.id);
+
+      if (error) {
+        toast.error(error.message);
+      } else {
+        toast.success('Hari libur berhasil diperbarui.');
+        resetHariLiburForm();
+        loadHariLibur();
+      }
+    } else {
+      // Mode Tambah
+      try {
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError || !session) {
+          throw new Error('Sesi tidak valid.');
+        }
+
+        const email = session.user.email;
+        const { data: dbUser, error: dbUserError } = await supabase
+          .from('users')
+          .select('id')
+          .eq('email', email)
+          .single();
+
+        if (dbUserError || !dbUser) {
+          throw new Error('Gagal mendapatkan informasi pengguna.');
+        }
+
+        const { error } = await supabase
+          .from('hari_libur')
+          .insert({
+            nama: hlNama,
+            tanggal_mulai: hlTanggalMulai,
+            tanggal_selesai: hlTanggalSelesai,
+            jenis: hlJenis,
+            keterangan: hlKeterangan || null,
+            dibuat_oleh: dbUser.id,
+          });
+
+        if (error) {
+          toast.error(error.message);
+        } else {
+          toast.success('Hari libur berhasil ditambahkan.');
+          resetHariLiburForm();
+          loadHariLibur();
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Terjadi kesalahan.';
+        toast.error(msg);
+      }
+    }
+    setIsLoading(false);
+  };
+
+  const handleEditHariLibur = (item: HariLibur) => {
+    setEditHariLibur(item);
+    setHlNama(item.nama);
+    setHlTanggalMulai(item.tanggal_mulai);
+    setHlTanggalSelesai(item.tanggal_selesai);
+    setHlJenis(item.jenis);
+    setHlKeterangan(item.keterangan || '');
+    setShowHariLiburForm(true);
+  };
+
+  const hapusHariLibur = async (id: string) => {
+    if (!window.confirm('Yakin ingin menghapus hari libur ini?')) return;
+    setIsLoading(true);
+    const { error } = await supabase
+      .from('hari_libur')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success('Hari libur berhasil dihapus.');
+      loadHariLibur();
+    }
+    setIsLoading(false);
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -302,6 +438,211 @@ export default function PekanMurajaahPanel({
           </div>
         </div>
       </div>
+
+      {/* ── CARD BARU: KELOLA HARI LIBUR & TANGGAL MERAH ── */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm mt-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 mb-4 gap-3">
+          <div>
+            <h3 className="font-extrabold text-sm text-slate-850 dark:text-slate-150 flex items-center space-x-2">
+              <Calendar className="h-4 w-4 text-indigo-500" />
+              <span>Kelola Hari Libur &amp; Tanggal Merah</span>
+            </h3>
+            <p className="text-xs text-slate-450 dark:text-slate-500 mt-1">
+              Atur tanggal libur nasional, libur semester, atau libur tahfiz mendadak. Hari-hari ini tidak dihitung sebagai target setoran santri dalam rekapan.
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              resetHariLiburForm();
+              setShowHariLiburForm(true);
+            }}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition-colors flex items-center space-x-1.5 shrink-0 self-start sm:self-center"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Tambah Hari Libur</span>
+          </button>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs text-left border-collapse">
+            <thead>
+              <tr className="text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-2">
+                <th className="pb-2 font-bold">Nama</th>
+                <th className="pb-2 font-bold">Tanggal</th>
+                <th className="pb-2 font-bold">Jenis</th>
+                <th className="pb-2 font-bold">Keterangan</th>
+                <th className="pb-2 text-right font-bold">Aksi</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
+              {hariLiburList.map((item) => (
+                <tr key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-850/10 transition-colors">
+                  <td className="py-3 font-bold text-slate-805 dark:text-slate-150">{item.nama}</td>
+                  <td className="py-3 text-slate-600 dark:text-slate-400 font-medium">
+                    {(() => {
+                      const start = new Date(item.tanggal_mulai + 'T00:00:00');
+                      const end = new Date(item.tanggal_selesai + 'T00:00:00');
+                      const options: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' };
+                      if (item.tanggal_mulai === item.tanggal_selesai) {
+                        return start.toLocaleDateString('id-ID', options);
+                      }
+                      return `${start.toLocaleDateString('id-ID', options)} - ${end.toLocaleDateString('id-ID', options)}`;
+                    })()}
+                  </td>
+                  <td className="py-3">
+                    {item.jenis === 'libur_nasional' && (
+                      <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-red-500/10 text-red-600">
+                        Libur Nasional
+                      </span>
+                    )}
+                    {item.jenis === 'libur_semester' && (
+                      <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-blue-500/10 text-blue-600">
+                        Libur Semester
+                      </span>
+                    )}
+                    {item.jenis === 'libur_tahfiz_mendadak' && (
+                      <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/10 text-amber-600">
+                        Libur Tahfiz Mendadak
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-3 text-slate-500 dark:text-slate-400 max-w-[200px] truncate">
+                    {item.keterangan || '-'}
+                  </td>
+                  <td className="py-3 text-right">
+                    <div className="flex justify-end items-center space-x-2">
+                      <button
+                        onClick={() => handleEditHariLibur(item)}
+                        className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-650 dark:text-slate-400 hover:text-indigo-650 transition-colors"
+                        title="Edit"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => hapusHariLibur(item.id)}
+                        className="p-1 hover:bg-red-50 dark:hover:bg-red-950/30 rounded text-red-500 hover:text-red-700 transition-colors"
+                        title="Hapus"
+                      >
+                        <Trash className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {hariLiburList.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="text-center py-8 text-slate-450 italic">
+                    Belum ada data hari libur yang ditambahkan.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ── MODAL FORM: TAMBAH/EDIT HARI LIBUR ── */}
+      {showHariLiburForm && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl w-full max-w-md shadow-xl space-y-4 animate-in zoom-in-95 duration-200">
+            <h4 className="font-extrabold text-base text-slate-850 dark:text-slate-150">
+              {editHariLibur ? 'Edit Hari Libur' : 'Tambah Hari Libur'}
+            </h4>
+            <form onSubmit={tambahHariLibur} className="space-y-4">
+              <div>
+                <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">
+                  Nama
+                </label>
+                <input
+                  type="text"
+                  placeholder="cth: Idul Fitri 2026"
+                  value={hlNama}
+                  onChange={(e) => setHlNama(e.target.value)}
+                  required
+                  className="w-full text-xs p-2.5 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-lg focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">
+                    Tanggal Mulai
+                  </label>
+                  <input
+                    type="date"
+                    value={hlTanggalMulai}
+                    onChange={(e) => setHlTanggalMulai(e.target.value)}
+                    required
+                    className="w-full text-xs p-2.5 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-lg focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">
+                    Tanggal Selesai
+                  </label>
+                  <input
+                    type="date"
+                    value={hlTanggalSelesai}
+                    onChange={(e) => setHlTanggalSelesai(e.target.value)}
+                    required
+                    className="w-full text-xs p-2.5 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-lg focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">
+                  Jenis
+                </label>
+                <select
+                  value={hlJenis}
+                  onChange={(e) =>
+                    setHlJenis(
+                      e.target.value as 'libur_nasional' | 'libur_semester' | 'libur_tahfiz_mendadak'
+                    )
+                  }
+                  required
+                  className="w-full text-xs p-2.5 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-lg focus:outline-none focus:border-indigo-500"
+                >
+                  <option value="libur_nasional">Libur Nasional</option>
+                  <option value="libur_semester">Libur Semester</option>
+                  <option value="libur_tahfiz_mendadak">Libur Tahfiz Mendadak</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">
+                  Keterangan (opsional)
+                </label>
+                <textarea
+                  rows={2}
+                  value={hlKeterangan}
+                  onChange={(e) => setHlKeterangan(e.target.value)}
+                  className="w-full text-xs p-2.5 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-lg focus:outline-none focus:border-indigo-500"
+                  placeholder="Keterangan tambahan..."
+                />
+              </div>
+
+              <div className="flex space-x-2 pt-2">
+                <button
+                  type="button"
+                  onClick={resetHariLiburForm}
+                  className="flex-grow bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-350 py-2 rounded-lg text-xs font-bold transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="flex-grow bg-indigo-650 hover:bg-indigo-750 text-white py-2 rounded-lg text-xs font-bold transition-colors disabled:opacity-60 shadow"
+                >
+                  Simpan
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

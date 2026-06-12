@@ -18,6 +18,8 @@ import {
   MessageSquare,
   TrendingUp,
   Flame,
+  UserCheck,
+  Heart,
 } from 'lucide-react';
 
 import BerandaPanel from './components/BerandaPanel';
@@ -26,6 +28,8 @@ import TikrarPanel from './components/TikrarPanel';
 import ManzilPanel from './components/ManzilPanel';
 import AnalitikPanel from './components/AnalitikPanel';
 import PesanPanel from './components/PesanPanel';
+import AbsensiPanel from './components/AbsensiPanel';
+import NilaiAkhlaqPanel from './components/NilaiAkhlaqPanel';
 
 export default function PengampuDashboard() {
   const [mounted, setMounted] = useState(false);
@@ -54,7 +58,7 @@ export default function PengampuDashboard() {
   const [tikrars, setTikrars] = useState<TikrarTask[]>([]);
 
   // Active menu & layout state
-  const [activeMenu, setActiveMenu] = useState<'beranda' | 'setoran' | 'tikrar' | 'manzil' | 'analitik' | 'pesan'>('beranda');
+  const [activeMenu, setActiveMenu] = useState<'beranda' | 'setoran' | 'tikrar' | 'manzil' | 'analitik' | 'pesan' | 'absensi' | 'akhlaq'>('beranda');
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
   const [isMobileMoreOpen, setIsMobileMoreOpen] = useState<boolean>(false);
 
@@ -423,6 +427,8 @@ export default function PengampuDashboard() {
             { id: 'setoran', label: 'Input Setoran', icon: ClipboardCheck },
             { id: 'tikrar', label: 'Program Tikrar', icon: Flame, badge: tikrars.filter(t => !t.selesai && activeStudents.map(s => s.id).includes(t.santri_id)).length },
             { id: 'manzil', label: 'Manzil Santri', icon: Award },
+            { id: 'absensi', label: 'Absensi', icon: UserCheck },
+            { id: 'akhlaq', label: 'Nilai Akhlaq', icon: Heart },
             { id: 'analitik', label: 'Analitik', icon: TrendingUp },
             { id: 'pesan', label: 'Pesan Wali', icon: MessageSquare, badge: pesans.filter(p => p.sender === 'orangtua' && activeStudents.map(s => s.id).includes(p.santriId) && !p.sudahDibaca).length },
           ].map((item) => {
@@ -431,7 +437,7 @@ export default function PengampuDashboard() {
             return (
               <button
                 key={item.id}
-                onClick={() => setActiveMenu(item.id as 'beranda' | 'setoran' | 'tikrar' | 'manzil' | 'analitik' | 'pesan')}
+                onClick={() => setActiveMenu(item.id as 'beranda' | 'setoran' | 'tikrar' | 'manzil' | 'analitik' | 'pesan' | 'absensi' | 'akhlaq')}
                 className={`w-full flex items-center p-3 rounded-xl transition-all duration-200 ${
                   isActive
                     ? 'bg-emerald-500/10 text-emerald-605 dark:text-emerald-400 font-bold border-l-4 border-emerald-500'
@@ -473,7 +479,7 @@ export default function PengampuDashboard() {
           return (
             <button
               key={item.id}
-              onClick={() => setActiveMenu(item.id as 'beranda' | 'setoran' | 'tikrar' | 'manzil' | 'analitik' | 'pesan')}
+              onClick={() => setActiveMenu(item.id as 'beranda' | 'setoran' | 'tikrar' | 'manzil' | 'analitik' | 'pesan' | 'absensi' | 'akhlaq')}
               className={`flex flex-col items-center p-1.5 rounded-lg transition-colors ${
                 isActive ? 'text-emerald-600 dark:text-emerald-400 font-bold' : 'text-slate-500'
               }`}
@@ -486,7 +492,7 @@ export default function PengampuDashboard() {
         <button
           onClick={() => setIsMobileMoreOpen(true)}
           className={`flex flex-col items-center p-1.5 rounded-lg transition-colors ${
-            activeMenu === 'analitik' || activeMenu === 'pesan' ? 'text-emerald-605 dark:text-emerald-400 font-bold' : 'text-slate-500'
+            activeMenu === 'analitik' || activeMenu === 'pesan' || activeMenu === 'absensi' || activeMenu === 'akhlaq' ? 'text-emerald-605 dark:text-emerald-400 font-bold' : 'text-slate-500'
           }`}
         >
           <Menu className="h-5 w-5" />
@@ -509,6 +515,8 @@ export default function PengampuDashboard() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               {[
+                { id: 'absensi', label: 'Absensi', icon: UserCheck },
+                { id: 'akhlaq', label: 'Akhlaq', icon: Heart },
                 { id: 'analitik', label: 'Analitik', icon: TrendingUp },
                 { id: 'pesan', label: 'Pesan Wali', icon: MessageSquare },
               ].map((item) => {
@@ -518,7 +526,7 @@ export default function PengampuDashboard() {
                   <button
                     key={item.id}
                     onClick={() => {
-                      setActiveMenu(item.id as 'beranda' | 'setoran' | 'tikrar' | 'manzil' | 'analitik' | 'pesan');
+                      setActiveMenu(item.id as 'beranda' | 'setoran' | 'tikrar' | 'manzil' | 'analitik' | 'pesan' | 'absensi' | 'akhlaq');
                       setIsMobileMoreOpen(false);
                     }}
                     className={`flex items-center p-3 rounded-xl border ${
@@ -611,6 +619,18 @@ export default function PengampuDashboard() {
             <ManzilPanel
               activeStudents={activeStudents}
               setorans={setorans}
+            />
+          )}
+          {activeMenu === 'absensi' && (
+            <AbsensiPanel
+              activeStudents={activeStudents}
+              pengampuDbId={pengampuDbId}
+            />
+          )}
+          {activeMenu === 'akhlaq' && (
+            <NilaiAkhlaqPanel
+              activeStudents={activeStudents}
+              pengampuDbId={pengampuDbId}
             />
           )}
           {activeMenu === 'analitik' && (

@@ -1,14 +1,49 @@
-import React from 'react';
-import { cookies } from 'next/headers';
+'use client';
+
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Cog, ShieldAlert, ArrowRight } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
 
 export default function MaintenancePage() {
-  const cookieStore = cookies();
-  const userRole = cookieStore.get('sb-user-role')?.value;
-  const isStaffTU = userRole === 'tata_usaha';
+  const [isStaffTU, setIsStaffTU] = useState(false);
+
+  useEffect(() => {
+    const roleCookie = document.cookie
+      .split(';')
+      .find(row => row.trim().startsWith('sb-user-role='));
+    const role = roleCookie?.split('=')?.[1]?.trim();
+    setIsStaffTU(role === 'tata_usaha');
+  }, []);
+
+  useEffect(() => {
+    async function checkMaintenanceMode() {
+      try {
+        const { data } = await supabase
+          .from('system_config')
+          .select('value')
+          .eq('key', 'maintenance_mode')
+          .single();
+
+        if (data && data.value !== 'true') {
+          window.location.href = '/login';
+        }
+      } catch (error) {
+        console.error('Error checking maintenance mode:', error);
+      }
+    }
+
+    // Cek langsung saat halaman dibuka
+    checkMaintenanceMode();
+
+    // Ulangi pengecekan setiap 5 detik
+    const intervalId = setInterval(checkMaintenanceMode, 5000);
+
+    // Cleanup interval saat komponen unmount
+    return () => clearInterval(intervalId);
+  }, []);
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/25 dark:from-slate-950 dark:via-slate-900 dark:to-emerald-950/15 flex flex-col items-center justify-center p-4 text-center">
@@ -54,6 +89,11 @@ export default function MaintenancePage() {
         {/* Footer Contact Info */}
         <p className="text-[10px] text-slate-400 dark:text-slate-550">
           Hubungi Tata Usaha jika membutuhkan bantuan segera.
+        </p>
+
+        {/* Auto-recovery status */}
+        <p className="text-xs text-emerald-500 dark:text-emerald-400 animate-pulse mt-4">
+          Sistem akan otomatis pulih saat pemeliharaan selesai.
         </p>
       </div>
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { Santri, UjianJuz, Setoran } from '@/types/tahfiz';
@@ -11,6 +11,7 @@ import {
   Megaphone,
   Send,
   Loader2,
+  Heart,
 } from 'lucide-react';
 
 interface DashboardPanelProps {
@@ -44,6 +45,70 @@ export default function DashboardPanel({
     semua: false,
   });
   const [isSending, setIsSending] = useState(false);
+
+  // ── Akhlaq Settings State ──────────────────────────────────────────────────
+  const [akhlaqAktif, setAkhlaqAktif] = useState<boolean>(false);
+  const [akhlaqSemester, setAkhlaqSemester] = useState<string>('');
+  const [loadingAkhlaqToggle, setLoadingAkhlaqToggle] = useState<boolean>(false);
+  const [isLoadingAkhlaqSettings, setIsLoadingAkhlaqSettings] = useState<boolean>(true);
+
+  // ── Fetch Akhlaq Settings ──────────────────────────────────────────────────
+  const loadAkhlaqSettings = useCallback(async () => {
+    setIsLoadingAkhlaqSettings(true);
+    const { data, error } = await supabase
+      .from('system_config')
+      .select('key, value')
+      .in('key', ['akhlaq_input_aktif', 'akhlaq_semester_aktif']);
+
+    if (error) {
+      console.warn('Gagal memuat system_config untuk akhlaq:', error.message);
+    } else if (data) {
+      const aktif = data.find(d => d.key === 'akhlaq_input_aktif');
+      const semester = data.find(d => d.key === 'akhlaq_semester_aktif');
+      setAkhlaqAktif(aktif?.value === 'true');
+      setAkhlaqSemester(semester?.value || '');
+    }
+    setIsLoadingAkhlaqSettings(false);
+  }, []);
+
+  useEffect(() => {
+    loadAkhlaqSettings();
+  }, [loadAkhlaqSettings]);
+
+  // ── Handler Toggle Akhlaq ──────────────────────────────────────────────────
+  const toggleAkhlaqInput = async () => {
+    const newValue = !akhlaqAktif;
+
+    if (newValue && !akhlaqSemester.trim()) {
+      toast.error('Isi label semester terlebih dahulu sebelum mengaktifkan (contoh: "Ganjil 2025/2026").');
+      return;
+    }
+
+    setLoadingAkhlaqToggle(true);
+
+    const { error: error1 } = await supabase
+      .from('system_config')
+      .update({ value: newValue.toString() })
+      .eq('key', 'akhlaq_input_aktif');
+
+    const { error: error2 } = await supabase
+      .from('system_config')
+      .update({ value: akhlaqSemester.trim() })
+      .eq('key', 'akhlaq_semester_aktif');
+
+    if (error1 || error2) {
+      toast.error('Gagal mengubah pengaturan nilai akhlaq.');
+    } else {
+      setAkhlaqAktif(newValue);
+      if (newValue) {
+        toast.success(`Input Nilai Akhlaq diaktifkan untuk semester "${akhlaqSemester}". Pengampu sekarang bisa mengisi nilai akhlaq santri.`);
+      } else {
+        toast.success('Input Nilai Akhlaq dinonaktifkan.');
+      }
+    }
+
+    setLoadingAkhlaqToggle(false);
+  };
 
   // ── Computed Stats ────────────────────────────────────────────────────────
   const stagnantCount = santriList.filter(s => s.status === 'stagnant').length;
@@ -290,6 +355,76 @@ export default function DashboardPanel({
             )}
           </button>
         </form>
+      </div>
+
+      {/* Pengaturan Nilai Akhlaq Semester */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm space-y-4">
+        <div className="flex items-center space-x-2 border-b border-slate-100 dark:border-slate-800 pb-3 mb-2">
+          <Heart className="h-5 w-5 text-rose-500 fill-rose-500/10" />
+          <div>
+            <h3 className="font-extrabold text-sm text-slate-800 dark:text-slate-100">
+              Pengaturan Nilai Akhlaq Semester
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Aktifkan periode ini agar Pengampu dapat mengisi nilai akhlaq santri (bobot 10% dari nilai akhir). Nilai akhlaq diinput satu kali per semester.
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <div>
+            <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1.5">Label Semester</label>
+            <input
+              type="text"
+              value={akhlaqSemester}
+              onChange={e => setAkhlaqSemester(e.target.value)}
+              placeholder="contoh: Ganjil 2025/2026"
+              disabled={akhlaqAktif}
+              className="w-full text-xs p-2.5 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-60 disabled:bg-slate-100 dark:disabled:bg-slate-800/85"
+            />
+            {akhlaqAktif && (
+              <span className="text-[10px] text-slate-400 mt-1 block">
+                Nonaktifkan dahulu untuk mengubah label semester.
+              </span>
+            )}
+          </div>
+
+          <div className="flex justify-between items-center border-t border-slate-100 dark:border-slate-800 pt-4 mt-4">
+            <div className="flex items-center space-x-2">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Status Input:</span>
+              {akhlaqAktif ? (
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/45 dark:text-emerald-400">
+                  AKTIF — {akhlaqSemester}
+                </span>
+              ) : (
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+                  NONAKTIF
+                </span>
+              )}
+            </div>
+
+            <div>
+              {isLoadingAkhlaqSettings ? (
+                <span className="text-xs text-slate-400 italic">Memuat pengaturan...</span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={toggleAkhlaqInput}
+                  disabled={loadingAkhlaqToggle}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                    akhlaqAktif ? 'bg-emerald-600' : 'bg-slate-200 dark:bg-slate-700'
+                  } ${loadingAkhlaqToggle ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      akhlaqAktif ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
